@@ -45,4 +45,14 @@ class User extends Authenticatable
             'password' => 'hashed',
         ];
     }
+
+    public function outgoingLetters()
+    {
+        return $this->hasMany(OutgoingLetter::class);
+    }
+
+    public function signers()
+    {
+        return $this->hasOne(Signer::class);
+    }
 }
