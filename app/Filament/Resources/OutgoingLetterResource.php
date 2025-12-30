@@ -22,6 +22,13 @@ class OutgoingLetterResource extends Resource
     protected static ?string $navigationLabel = 'Surat Keluar'; // Menu di Sidebar
     protected static ?string $modelLabel = 'Surat Keluar'; // Label di tombol
 
+    public static function getEloquentQuery(): Builder
+    {
+        return parent::getEloquentQuery()
+            ->with(['type', 'user', 'signer']) 
+            ->withoutGlobalScopes(); 
+    }
+
     public static function form(Form $form): Form
     {
         return $form
