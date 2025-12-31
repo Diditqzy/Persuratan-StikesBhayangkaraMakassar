@@ -15,6 +15,7 @@ use Filament\Forms\Components\Section;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Support\Facades\Auth; 
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\SoftDeletingScope;
 
@@ -72,6 +73,52 @@ class IncomingLetterResource extends Resource
                             ->required()
                             ->columnSpanFull(),
                     ])->columns(2),
+
+                // --- SECTION 2: DISPOSISI ---
+                Section::make('Lembar Disposisi')
+                    ->description('Instruksi pimpinan untuk surat ini')
+                    ->schema([
+                        Forms\Components\Repeater::make('dispositions')
+                            ->relationship() // Relasi ke tabel incoming_dispositions
+                            ->label('Daftar Instruksi')
+                            ->schema([
+                                // Menampilkan siapa yang membuat (Otomatis)
+                                Forms\Components\Select::make('user_id')
+                                    ->label('Pemberi Instruksi')
+                                    ->relationship('user', 'name') // Ambil nama user otomatis
+                                    ->default(fn () => Auth::id()) // Default user yg login
+                                    ->disabled() // Tidak bisa diubah (Read Only)
+                                    ->dehydrated() // Wajib ada: Supaya data tetap tersimpan meski disabled
+                                    ->required()
+                                    ->columnSpanFull(), // Atau columns(1) sesuai selera
+
+                                Forms\Components\Select::make('target_division')
+                                    ->label('Tujuan Disposisi')
+                                    ->options([
+                                        'Prodi Keperawatan' => 'Prodi Keperawatan',
+                                        'Prodi Kebidanan' => 'Prodi Kebidanan',
+                                        'Prodi Ners' => 'Prodi Ners',
+                                        'Bagian Keuangan' => 'Bagian Keuangan',
+                                        'Bagian Akademik' => 'Bagian Akademik',
+                                        'LPPM' => 'LPPM',
+                                        'Kemahasiswaan' => 'Kemahasiswaan',
+                                    ])
+                                    ->searchable()
+                                    ->required(),
+
+                                Forms\Components\Textarea::make('instruction')
+                                    ->label('Isi Instruksi')
+                                    ->required()
+                                    ->columnSpanFull(),
+
+                                // // Hidden: Simpan ID user otomatis
+                                // Forms\Components\Hidden::make('user_id')
+                                //     ->default(fn () => auth()->id()),
+                            ])
+                            ->columns(2)
+                            ->addActionLabel('Tambah Instruksi Baru')
+                            ->itemLabel(fn (array $state): ?string => $state['target_division'] ?? null),
+                    ]),
             ]);
     }
 
@@ -98,6 +145,20 @@ class IncomingLetterResource extends Resource
                     ->label('Diterima')
                     ->date('d M Y')
                     ->sortable(),
+                Tables\Columns\TextColumn::make('status')
+                    ->label('Status Disposisi')
+                    ->badge() // Biar tampil gaya lencana (kotak warna)
+                    ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'waiting_disposition' => 'Menunggu',
+                        'dispositioned' => 'Selesai',
+                        default => $state,
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'waiting_disposition' => 'warning', // Kuning
+                        'dispositioned' => 'success', // Hijau
+                        default => 'gray',
+                    })
+                    ->sortable(),
             ])
             ->filters([
                 //
@@ -116,7 +177,8 @@ class IncomingLetterResource extends Resource
     public static function getRelations(): array
     {
         return [
-            //
+            // Daftarkan Relation Manager di sini
+            // RelationManagers\DispositionsRelationManager::class,
         ];
     }
 
