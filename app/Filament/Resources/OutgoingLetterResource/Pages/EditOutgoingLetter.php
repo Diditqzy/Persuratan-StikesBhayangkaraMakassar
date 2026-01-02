@@ -14,11 +14,18 @@ class EditOutgoingLetter extends EditRecord
 {
     protected static string $resource = OutgoingLetterResource::class;
 
+    // Redirect ke halaman list setelah simpan/aksi
+    protected function getRedirectUrl(): string
+    {
+        return $this->getResource()::getUrl('index');
+    }
+
     protected function getHeaderActions(): array
     {
         return [
-            // 1. Tombol Delete Bawaan
-            Actions\DeleteAction::make(),
+            // 1. Tombol Hapus (Hilang jika surat sudah Final)
+            Actions\DeleteAction::make()
+                ->visible(fn () => $this->record->status !== 'completed'),
 
             // 2. TOMBOL AJUKAN (Draft -> Pending)
             Actions\Action::make('submit')
@@ -36,6 +43,7 @@ class EditOutgoingLetter extends EditRecord
                 }),
 
             // 3. TOMBOL APPROVE (Pending -> Approved)
+            // Pimpinan setuju, tapi Admin masih bisa edit nomor surat/typo
             Actions\Action::make('approve')
                 ->label('Setujui Surat')
                 ->icon('heroicon-o-check-badge')
@@ -47,8 +55,8 @@ class EditOutgoingLetter extends EditRecord
                         'status' => 'approved',
                         'approved_at' => now(),
                     ]);
-                    Notification::make()->success()->title('Surat Disetujui')->send();
-                    $this->redirect($this->getResource()::getUrl('index'));
+                    Notification::make()->success()->title('Surat Disetujui (Menunggu Finalisasi Admin)')->send();
+                    // Kita tidak redirect, supaya Pimpinan/Admin bisa langsung lihat perubahan
                 }),
 
             // 4. TOMBOL MINTA REVISI (Pending -> Revision Needed)
@@ -64,33 +72,58 @@ class EditOutgoingLetter extends EditRecord
                         ->required(),
                 ])
                 ->action(function (array $data) {
-                    // Simpan Catatan
                     OutgoingDisposition::create([
                         'outgoing_letter_id' => $this->record->id,
                         'user_id' => Auth::id(),
                         'instruction' => $data['instruction'],
                     ]);
 
-                    // Ubah Status
                     $this->record->update(['status' => 'revision_needed']);
 
                     Notification::make()->warning()->title('Surat Dikembalikan untuk Revisi')->send();
                     $this->redirect($this->getResource()::getUrl('index'));
                 }),
+
+            // 5. [BARU] TOMBOL FINALISASI (Approved -> Completed)
+            // Admin menekan ini setelah memastikan nomor surat dan isi sudah benar 100%
+            Actions\Action::make('finalize')
+                ->label('Finalisasi Surat')
+                ->icon('heroicon-o-lock-closed')
+                ->color('primary') // Biru
+                ->requiresConfirmation()
+                ->modalHeading('Finalisasi Surat?')
+                ->modalDescription('Setelah ini surat TIDAK BISA DIEDIT LAGI & Siap Cetak. Pastikan nomor surat sudah terisi.')
+                ->visible(fn () => $this->record->status === 'approved')
+                ->action(function () {
+                    // Cek validasi sederhana: Jangan mau final kalau nomor surat masih kosong
+                    if (empty($this->record->letter_number)) {
+                        Notification::make()->danger()->title('Gagal: Nomor Surat Wajib Diisi sebelum Finalisasi!')->send();
+                        return;
+                    }
+
+                    $this->record->update(['status' => 'completed']);
+                    Notification::make()->success()->title('Surat Final & Terkunci')->send();
+                    $this->redirect($this->getResource()::getUrl('index'));
+                }),
             
-            // 5. TOMBOL PRINT (Muncul kalau Approved)
+            // 6. TOMBOL PRINT (Hanya Muncul kalau sudah Completed/Final)
             Actions\Action::make('print')
                 ->label('Cetak PDF')
                 ->icon('heroicon-o-printer')
                 ->color('gray')
                 ->url(fn () => route('outgoing.print', $this->record))
                 ->openUrlInNewTab()
-                ->visible(fn () => $this->record->status === 'approved'),
+                ->visible(fn () => $this->record->status === 'completed'),
         ];
     }
 
-    protected function getRedirectUrl(): string
+    protected function getFormActions(): array
     {
-        return $this->getResource()::getUrl('index');
+        // Jika status sudah Completed (Final), hilangkan tombol Save & Cancel
+        if ($this->record->status === 'completed') {
+            return [];
+        }
+
+        return parent::getFormActions();
     }
 }
