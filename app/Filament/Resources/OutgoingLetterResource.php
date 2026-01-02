@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\OutgoingLetterResource\Pages;
 use App\Models\OutgoingLetter;
+use App\Models\OutgoingDisposition;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Components\Repeater;
@@ -11,6 +12,9 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Filament\Tables\Actions\ActionGroup;
+use Filament\Tables\Actions\Action;
+use Filament\Notifications\Notification;
 use Illuminate\Support\Facades\Auth; 
 use Illuminate\Database\Eloquent\Builder;
 
@@ -33,6 +37,25 @@ class OutgoingLetterResource extends Resource
     {
         return $form
             ->schema([
+                // --- [BARU] KOTAK PERINGATAN REVISI ---
+                Forms\Components\Section::make('Disposisi Pimpinan') // <--- GANTI JUDULNYA JADI INI
+                    ->schema([
+                        Forms\Components\Placeholder::make('revisi_note')
+                            ->label('Instruksi / Catatan:') // <--- LABEL LEBIH UMUM
+                            ->content(fn ($record) => $record?->dispositions()->latest()->first()?->instruction ?? '-Tidak ada catatan-')
+                            ->extraAttributes(['class' => 'text-danger-600 font-bold text-lg']),
+                        
+                        // Opsional: Tampilkan siapa yang memberi disposisi
+                        Forms\Components\Placeholder::make('disposition_sender')
+                            ->label('Dari:')
+                            ->content(fn ($record) => $record?->dispositions()->latest()->first()?->sender->name ?? '-'),
+                    ])
+                    ->icon('heroicon-o-chat-bubble-left-right') // Ganti ikon jadi chat/pesan
+                    ->iconColor('danger') 
+                    // Logic: Muncul kalau statusnya Revision Needed
+                    ->visible(fn ($record) => $record?->status === 'revision_needed')
+                    ->columns(2), // Biar rapi sebelahan (Pesan & Pengirim)
+
                 // === BAGIAN 1: Data Utama Surat ===
                 Forms\Components\Section::make('Informasi Surat')
                     ->description('Isi detail surat yang akan diajukan.')
@@ -166,12 +189,16 @@ class OutgoingLetterResource extends Resource
                         'pending_approval' => 'warning', // Kuning
                         'approved' => 'success', // Hijau
                         'rejected' => 'danger', // Merah
+                        'revision_needed' => 'danger', // Merah
+                        // default => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'draft' => 'Draft',
                         'pending_approval' => 'Menunggu',
                         'approved' => 'Disetujui',
                         'rejected' => 'Ditolak',
+                        'revision_needed' => 'Perlu Revisi',
+                        default => $state,
                     }),
             ])
             ->defaultSort('created_at', 'desc')
@@ -180,63 +207,83 @@ class OutgoingLetterResource extends Resource
             ])
             // --- BAGIAN INI YANG KITA MODIFIKASI TOTAL ---
             ->actions([
-                Tables\Actions\Action::make('print')
-                    ->label('Cetak PDF')
-                    ->icon('heroicon-o-printer')
-                    ->color('gray')
-                    // Buka di tab baru (wajib pakai url() dan openUrlInNewTab)
-                    ->url(fn (OutgoingLetter $record) => route('outgoing.print', $record))
-                    ->openUrlInNewTab()
-                    // Cuma muncul kalau sudah Approved (Opsional, hapus visible kalau mau bisa print draft)
-                    ->visible(fn (OutgoingLetter $record) => $record->status === 'approved'),
-                // 1. Tombol Edit (Selalu muncul)
+                // 1. Tombol Edit & Delete (Selalu Muncul)
                 Tables\Actions\EditAction::make(),
+                Tables\Actions\DeleteAction::make(),
 
-                // 2. Tombol AJUKAN (Draft -> Pending)
-                // Hanya muncul kalau status masih DRAFT
-                Tables\Actions\Action::make('submit')
-                    ->label('Ajukan')
-                    ->icon('heroicon-o-paper-airplane')
-                    ->color('warning')
-                    ->requiresConfirmation()
-                    ->visible(fn (OutgoingLetter $record) => $record->status === 'draft')
-                    ->action(function (OutgoingLetter $record) {
-                        $record->update(['status' => 'pending_approval']);
-                    }),
+                // 2. GRUP TOMBOL PROSES (Titik Tiga)
+                Tables\Actions\ActionGroup::make([
+                    
+                    // A. TOMBOL LIHAT PDF (Muncul kalau sudah Approved)
+                    Tables\Actions\Action::make('print')
+                        ->label('Cetak / Download PDF')
+                        ->icon('heroicon-o-printer')
+                        ->color('gray')
+                        ->url(fn (OutgoingLetter $record) => route('outgoing.print', $record))
+                        ->openUrlInNewTab()
+                        ->visible(fn (OutgoingLetter $record) => $record->status === 'approved'),
 
-                // 3. Tombol APPROVE (Pending -> Approved)
-                // Hanya muncul kalau status PENDING
-                Tables\Actions\Action::make('approve')
-                    ->label('Setujui')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->requiresConfirmation()
-                    ->visible(fn (OutgoingLetter $record) => $record->status === 'pending_approval')
-                    ->action(function (OutgoingLetter $record) {
-                        // Update jadi Approved & isi tanggal
-                        $record->update([
-                            'status' => 'approved',
-                            'approved_at' => now(),
-                        ]);
-                        // Note: Observer akan otomatis jalan bikin Nomor Surat
-                    }),
+                    // B. TOMBOL AJUKAN (Draft -> Pending)
+                    Tables\Actions\Action::make('submit')
+                        ->label('Ajukan Verifikasi')
+                        ->icon('heroicon-o-paper-airplane')
+                        ->color('blue')
+                        ->requiresConfirmation()
+                        ->modalHeading('Ajukan Surat?')
+                        ->modalDescription('Surat akan dikirim ke pimpinan untuk diperiksa.')
+                        // Muncul kalau status Draft ATAU Revisi (biar bisa diajukan ulang)
+                        ->visible(fn (OutgoingLetter $record) => in_array($record->status, ['draft', 'revision_needed']))
+                        ->action(fn (OutgoingLetter $record) => $record->update(['status' => 'pending_approval'])),
 
-                // 4. Tombol REJECT (Pending -> Rejected)
-                // Hanya muncul kalau status PENDING
-                Tables\Actions\Action::make('reject')
-                    ->label('Tolak')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn (OutgoingLetter $record) => $record->status === 'pending_approval')
-                    ->form([
-                        // Form pop-up alasan penolakan
-                        Forms\Components\Textarea::make('note')
-                            ->label('Alasan Penolakan')
-                            ->required(),
-                    ])
-                    ->action(function (OutgoingLetter $record, array $data) {
-                        $record->update(['status' => 'rejected']);
-                    }),
+                    // C. TOMBOL SETUJUI (Pending -> Approved)
+                    Tables\Actions\Action::make('approve')
+                        ->label('Setujui Surat')
+                        ->icon('heroicon-o-check-badge')
+                        ->color('success')
+                        ->requiresConfirmation()
+                        ->visible(fn (OutgoingLetter $record) => $record->status === 'pending_approval')
+                        ->action(function (OutgoingLetter $record) {
+                            $record->update([
+                                'status' => 'approved',
+                                'approved_at' => now(),
+                            ]);
+                        }),
+
+                    // D. TOMBOL MINTA REVISI (Pending -> Revision Needed)
+                    Tables\Actions\Action::make('request_revision')
+                        ->label('Minta Revisi')
+                        ->icon('heroicon-o-pencil-square') // Ikon Edit
+                        ->color('warning')
+                        ->visible(fn (OutgoingLetter $record) => $record->status === 'pending_approval')
+                        ->form([
+                            Forms\Components\Textarea::make('instruction')
+                                ->label('Catatan Revisi untuk Admin')
+                                ->placeholder('Contoh: Logo salah, tolong perbaiki paragraf 2.')
+                                ->required(),
+                        ])
+                        ->action(function (OutgoingLetter $record, array $data) {
+                            // 1. Simpan Catatan ke Tabel Disposisi Keluar
+                            OutgoingDisposition::create([
+                                'outgoing_letter_id' => $record->id,
+                                'user_id' => Auth::id(), // ID Pimpinan yang login
+                                'instruction' => $data['instruction'], // Catatan dari form
+                            ]);
+
+                            // 2. Ubah Status Surat
+                            $record->update(['status' => 'revision_needed']);
+                            
+                            // 3. Notifikasi (Opsional)
+                            \Filament\Notifications\Notification::make()
+                                ->title('Surat Dikembalikan untuk Revisi')
+                                ->success()
+                                ->send();
+                        }),
+
+                ])
+                ->label('Proses')
+                ->icon('heroicon-m-ellipsis-vertical')
+                ->color('info')
+                ->tooltip('Menu Persetujuan'),
             ])
             // ----------------------------------------------
             ->bulkActions([
