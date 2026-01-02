@@ -102,7 +102,7 @@
 
             <div class="qrcode">
                 @if(in_array($data->status, ['approved', 'completed']) && $data->signature_code)
-                    <img src="data:image/png;base64, {!! base64_encode(QrCode::format('png')->size(100)->generate(route('letter.verify', $data->signature_code))) !!} ">
+                    <img src="data:image/svg+xml;base64, {!! base64_encode(QrCode::format('svg')->size(100)->generate(route('letter.verify', $data->signature_code))) !!} ">
                     <br>
                     <span style="font-size: 8pt; color: #555;">Dokumen ini ditandatangani secara elektronik</span>
                 @else

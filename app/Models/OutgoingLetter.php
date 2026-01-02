@@ -2,9 +2,10 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Str;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OutgoingLetter extends Model
 {
@@ -19,7 +20,19 @@ class OutgoingLetter extends Model
 
     protected $guarded = ['id'];
 
-    
+    protected static function booted()
+    {
+        // Event 'updating': Jalan SESAAT SEBELUM data yang diedit disimpan ke database.
+        static::updating(function ($letter) {
+            if ($letter->isDirty('status') && 
+                in_array($letter->status, ['approved', 'completed']) && 
+                is_null($letter->signature_code)) {
+                
+                // AKSI: Isi kolom signature_code dengan UUID (kode unik acak)
+                $letter->signature_code = (string) Str::uuid();
+            }
+        });
+    }
 
     // Relasi ke Pembuat Surat
     public function user(): BelongsTo
