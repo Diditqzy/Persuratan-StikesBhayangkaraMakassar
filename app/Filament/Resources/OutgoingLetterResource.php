@@ -138,7 +138,8 @@ class OutgoingLetterResource extends Resource
                             ->relationship('user', 'name')
                             ->label('Pemohon')
                             ->default(Auth::id())
-                            ->disabled(), // Pemohon tidak bisa diubah
+                            ->disabled() // Pemohon tidak bisa diubah
+                            ->dehydrated(),
                     ])
                     ->columns(1)
                     ->disabled(fn ($record) => $record?->status === 'completed'),
@@ -280,11 +281,23 @@ class OutgoingLetterResource extends Resource
                         ->modalDescription('Pastikan nomor surat sudah diisi. Setelah ini surat tidak bisa diedit lagi.')
                         ->visible(fn (OutgoingLetter $record) => $record->status === 'approved')
                         ->action(function (OutgoingLetter $record) {
+                            // 1. Validasi Nomor Surat
                             if (empty($record->letter_number)) {
                                 Notification::make()->danger()->title('Gagal: Nomor Surat Kosong!')->send();
                                 return;
                             }
-                            $record->update(['status' => 'completed']);
+
+                            // 2. Siapkan data update
+                            $updateData = ['status' => 'completed'];
+
+                            // 3. Cek apakah signature_code sudah ada? 
+                            if (empty($record->signature_code)) {
+                                $updateData['signature_code'] = (string) \Illuminate\Support\Str::uuid();
+                            }
+
+                            // 4. Update Database
+                            $record->update($updateData);
+                            
                             Notification::make()->success()->title('Surat Final & Terkunci')->send();
                         }),
 
@@ -305,10 +318,16 @@ class OutgoingLetterResource extends Resource
                         ->requiresConfirmation()
                         ->visible(fn (OutgoingLetter $record) => $record->status === 'pending_approval')
                         ->action(function (OutgoingLetter $record) {
+                            // Generate kode unik acak (UUID atau Random String)
+                            $signatureCode = (string) \Illuminate\Support\Str::uuid();
+                            
                             $record->update([
                                 'status' => 'approved',
                                 'approved_at' => now(),
+                                'signature_code' => $signatureCode, // Simpan kode unik
                             ]);
+                            
+                            Notification::make()->success()->title('Surat Disetujui & TTD Digital Dibuat')->send();
                         }),
 
                     // E. TOMBOL REVISI (Pending -> Revision)

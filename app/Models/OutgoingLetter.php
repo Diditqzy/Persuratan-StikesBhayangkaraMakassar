@@ -14,9 +14,12 @@ class OutgoingLetter extends Model
         'letter_date' => 'date',
         'verified_at' => 'datetime',
         'approved_at' => 'datetime',
+        
     ];
 
     protected $guarded = ['id'];
+
+    
 
     // Relasi ke Pembuat Surat
     public function user(): BelongsTo

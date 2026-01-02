@@ -1,8 +1,9 @@
 <?php
 
-use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\PdfController;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\PdfController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\LetterVerificationController;
 
 Route::get('/', function () {
     return view('welcome');
@@ -21,5 +22,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 });
+
+Route::get('/verify-surat/{code}', [LetterVerificationController::class, 'verify'])->name('letter.verify');
 
 require __DIR__.'/auth.php';

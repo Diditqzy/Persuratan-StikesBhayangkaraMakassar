@@ -54,8 +54,10 @@ class EditOutgoingLetter extends EditRecord
                     $this->record->update([
                         'status' => 'approved',
                         'approved_at' => now(),
+                        'signature_code' => (string) \Illuminate\Support\Str::uuid(), 
                     ]);
-                    Notification::make()->success()->title('Surat Disetujui (Menunggu Finalisasi Admin)')->send();
+                    
+                    Notification::make()->success()->title('Surat Disetujui & QR Code Dibuat')->send();
                     // Kita tidak redirect, supaya Pimpinan/Admin bisa langsung lihat perubahan
                 }),
 
