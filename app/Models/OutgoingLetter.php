@@ -9,7 +9,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class OutgoingLetter extends Model
 {
-    // Casting JSON dan Date otomatis
     protected $casts = [
         'content_data' => 'array',
         'letter_date' => 'date',
@@ -22,13 +21,11 @@ class OutgoingLetter extends Model
 
     protected static function booted()
     {
-        // Event 'updating': Jalan SESAAT SEBELUM data yang diedit disimpan ke database.
         static::updating(function ($letter) {
             if ($letter->isDirty('status') && 
                 in_array($letter->status, ['approved', 'completed']) && 
                 is_null($letter->signature_code)) {
                 
-                // AKSI: Isi kolom signature_code dengan UUID (kode unik acak)
                 $letter->signature_code = (string) Str::uuid();
             }
         });

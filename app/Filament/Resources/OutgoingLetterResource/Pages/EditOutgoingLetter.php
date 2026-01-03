@@ -14,7 +14,6 @@ class EditOutgoingLetter extends EditRecord
 {
     protected static string $resource = OutgoingLetterResource::class;
 
-    // Redirect ke halaman list setelah simpan/aksi
     protected function getRedirectUrl(): string
     {
         return $this->getResource()::getUrl('index');
@@ -23,6 +22,14 @@ class EditOutgoingLetter extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Actions\Action::make('download_qr')
+                ->label('Ambil TTD Digital')
+                ->icon('heroicon-o-qr-code')
+                ->color('success') 
+                ->url(fn () => route('outgoing-letters.download-qr', $this->record))
+                ->openUrlInNewTab() 
+                ->visible(fn () => in_array($this->record->status, ['approved', 'completed'])),
+
             // 1. Tombol Hapus (Hilang jika surat sudah Final)
             Actions\DeleteAction::make()
                 ->visible(fn () => $this->record->status !== 'completed'),
@@ -43,7 +50,6 @@ class EditOutgoingLetter extends EditRecord
                 }),
 
             // 3. TOMBOL APPROVE (Pending -> Approved)
-            // Pimpinan setuju, tapi Admin masih bisa edit nomor surat/typo
             Actions\Action::make('approve')
                 ->label('Setujui Surat')
                 ->icon('heroicon-o-check-badge')
@@ -58,7 +64,6 @@ class EditOutgoingLetter extends EditRecord
                     ]);
                     
                     Notification::make()->success()->title('Surat Disetujui & QR Code Dibuat')->send();
-                    // Kita tidak redirect, supaya Pimpinan/Admin bisa langsung lihat perubahan
                 }),
 
             // 4. TOMBOL MINTA REVISI (Pending -> Revision Needed)
@@ -86,18 +91,16 @@ class EditOutgoingLetter extends EditRecord
                     $this->redirect($this->getResource()::getUrl('index'));
                 }),
 
-            // 5. [BARU] TOMBOL FINALISASI (Approved -> Completed)
-            // Admin menekan ini setelah memastikan nomor surat dan isi sudah benar 100%
+            // 5. TOMBOL FINALISASI (Approved -> Completed)
             Actions\Action::make('finalize')
                 ->label('Finalisasi Surat')
                 ->icon('heroicon-o-lock-closed')
-                ->color('primary') // Biru
+                ->color('primary')
                 ->requiresConfirmation()
                 ->modalHeading('Finalisasi Surat?')
                 ->modalDescription('Setelah ini surat TIDAK BISA DIEDIT LAGI & Siap Cetak. Pastikan nomor surat sudah terisi.')
                 ->visible(fn () => $this->record->status === 'approved')
                 ->action(function () {
-                    // Cek validasi sederhana: Jangan mau final kalau nomor surat masih kosong
                     if (empty($this->record->letter_number)) {
                         Notification::make()->danger()->title('Gagal: Nomor Surat Wajib Diisi sebelum Finalisasi!')->send();
                         return;

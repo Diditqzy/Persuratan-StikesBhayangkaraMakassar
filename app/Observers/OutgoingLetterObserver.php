@@ -9,44 +9,66 @@ class OutgoingLetterObserver
 {
     /**
      * Handle the OutgoingLetter "saving" event.
-     * Fungsi ini jalan OTOMATIS sesaat sebelum data disimpan ke DB.
      */
     public function saving(OutgoingLetter $outgoingLetter): void
     {
-        // 1. Cek apakah status berubah menjadi 'approved'?
-        if ($outgoingLetter->isDirty('status') && $outgoingLetter->status === 'approved') {
+        if ($outgoingLetter->isDirty('status') && 
+            in_array($outgoingLetter->status, ['approved', 'completed'])) {
             
-            // 2. Cek apakah nomor surat masih kosong? (Biar gak digenerate 2x)
             if (empty($outgoingLetter->letter_number)) {
                 $outgoingLetter->letter_number = $this->generateLetterNumber($outgoingLetter);
             }
             
-            // 3. Catat tanggal disetujui
-            $outgoingLetter->approved_at = now();
+            if (empty($outgoingLetter->approved_at)) {
+                $outgoingLetter->approved_at = now();
+            }
         }
     }
 
+    /**
+     * Logika Generate Nomor Surat
+     */
     private function generateLetterNumber(OutgoingLetter $letter): string
     {
-        // Format: NO_URUT/KODE_JENIS/STIKES/BULAN_ROMAWI/TAHUN
-        // Contoh: 005/SK/STIKES/XII/2025
+        $date = Carbon::parse($letter->letter_date);
+        $month = $date->month;
+        $year = $date->year;
 
-        $year = $letter->letter_date->year;
-        $month = $letter->letter_date->month;
-        $typeCode = $letter->type->code ?? 'UM'; // Default UM (Umum) kalau gak ada kode
+        $typeCode = $letter->type->code ?? 'UM';
+        if (!$letter->relationLoaded('type')) {
+            $letter->load('type');
+            $typeCode = $letter->type->code ?? 'UM';
+        }
 
-        // Hitung urutan surat per TAHUN dan per JENIS SURAT yang sama
-        $count = OutgoingLetter::whereYear('letter_date', $year)
-            ->where('type_id', $letter->type_id)
-            ->where('status', 'approved')
-            ->count();
-        
-        // Urutan ditambah 1
-        $sequence = str_pad($count + 1, 3, '0', STR_PAD_LEFT); // 1 jadi 001
-
+        // Format Template Akhiran: /KODE/STIKES/ROMAWI/TAHUN
         $romanMonth = $this->getRomanMonth($month);
+        $formatSuffix = "/{$typeCode}/STIKES/{$romanMonth}/{$year}";
 
-        return "{$sequence}/{$typeCode}/STIKES/{$romanMonth}/{$year}";
+        $lastLetter = OutgoingLetter::where('letter_number', 'LIKE', "%{$formatSuffix}")
+            ->orderBy('id', 'desc')
+            ->first();
+
+        $newSequence = 1;
+        if ($lastLetter) {
+            $parts = explode('/', $lastLetter->letter_number);
+            $newSequence = (int) $parts[0] + 1;
+        }
+
+        do {
+            $sequenceString = str_pad($newSequence, 3, '0', STR_PAD_LEFT);
+            $candidateNumber = "{$sequenceString}{$formatSuffix}";
+
+            $exists = OutgoingLetter::where('letter_number', $candidateNumber)
+                ->where('id', '!=', $letter->id) 
+                ->exists();
+
+            if ($exists) {
+                $newSequence++; 
+            }
+
+        } while ($exists);
+
+        return $candidateNumber;
     }
 
     private function getRomanMonth($month): string

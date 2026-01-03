@@ -102,14 +102,16 @@
             /* Sisa Ruang: 100 - 26 = 74px */
             /* Bagi dua: 37px */
             
-            top: 37px;
-            left: 37px;
+            top: 35px;
+            left: 35px;
 
-            width: 22px; 
-            height: 22px;
+            width: 30px; 
+            height: 30px;
 
             background: #fff;
             padding: 2px;
+
+            margin: 0;
             
             /* Hapus border-radius biar kotak tegas */
             border-radius: 0; 
