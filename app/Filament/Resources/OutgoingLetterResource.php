@@ -38,22 +38,27 @@ class OutgoingLetterResource extends Resource
     {
         return $form
             ->schema([
-                // --- SECTION 0: ALERT REVISI ---
-                Forms\Components\Section::make('Disposisi Pimpinan')
+                // --- SECTION 0: ALERT INFO (Revisi / Ditolak) ---
+                Forms\Components\Section::make('Status Pengembalian')
                     ->schema([
+                        // Jika REVISI
                         Forms\Components\Placeholder::make('revisi_note')
-                            ->label('Instruksi / Catatan:')
-                            ->content(fn ($record) => $record?->dispositions()->latest()->first()?->instruction ?? '-Tidak ada catatan-')
-                            ->extraAttributes(['class' => 'text-danger-600 font-bold text-lg']),
+                            ->label('Catatan Revisi Pimpinan:')
+                            ->content(fn ($record) => $record?->dispositions()->latest()->first()?->instruction)
+                            ->extraAttributes(['class' => 'text-warning-600 font-bold text-lg'])
+                            ->visible(fn ($record) => $record?->status === 'revision_needed'),
                         
-                        Forms\Components\Placeholder::make('disposition_sender')
-                            ->label('Dari:')
-                            ->content(fn ($record) => $record?->dispositions()->latest()->first()?->sender->name ?? '-'),
+                        // Jika DITOLAK
+                        Forms\Components\Placeholder::make('reject_note_view')
+                            ->label('Alasan Penolakan:')
+                            ->content(fn ($record) => $record->rejection_note)
+                            ->extraAttributes(['class' => 'text-danger-600 font-bold text-lg'])
+                            ->visible(fn ($record) => $record?->status === 'rejected'),
                     ])
-                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->icon('heroicon-o-exclamation-triangle')
                     ->iconColor('danger') 
-                    ->visible(fn ($record) => $record?->status === 'revision_needed')
-                    ->columns(2),
+                    ->visible(fn ($record) => in_array($record?->status, ['revision_needed', 'rejected']))
+                    ->columns(1),
 
                 // --- SECTION 1: DATA UTAMA ---
                 Forms\Components\Section::make('Informasi Surat')
@@ -100,14 +105,14 @@ class OutgoingLetterResource extends Resource
                             ->placeholder('Otomatis diisi saat status Disetujui')
                             ->disabled(fn ($record) => 
                                 !$record || 
-                                in_array($record->status, ['draft', 'revision_needed', 'pending_approval']) || 
+                                in_array($record->status, ['submitted', 'draft', 'revision_needed', 'pending_approval']) || 
                                 $record->status === 'completed'
                             )
                             ->dehydrated() 
                             ->maxLength(255),
 
                         Forms\Components\RichEditor::make('content_data')
-                            ->label('Isi Surat')
+                            ->label('Isi Surat / Keterangan')
                             ->columnSpanFull(),
                     ])
                     ->columns(2)
@@ -115,17 +120,18 @@ class OutgoingLetterResource extends Resource
 
                 // --- SECTION 2: FILE SURAT ---
                 Forms\Components\Section::make('File Surat')
-                    ->description('Upload file surat di sini. Awalnya upload DRAFT untuk diperiksa pimpinan. Jika sudah disetujui, download QR, tempel, lalu upload ulang file FINAL di sini.')
+                    ->description('Upload file surat di sini. Awalnya upload DRAFT untuk diperiksa pimpinan. Jika sudah disetujui, upload file FINAL.')
                     ->schema([
                         Forms\Components\FileUpload::make('final_file_path') 
                             ->label('Dokumen Surat (PDF)')
                             ->disk('public') 
                             ->directory('surat-keluar')
                             ->acceptedFileTypes(['application/pdf'])
-                            ->maxSize(10240) // 10MB
+                            ->maxSize(10240) 
                             ->downloadable() 
                             ->openable() 
-                            ->required() 
+                            // Required cuma kalau statusnya bukan submitted (User submit tanpa file surat, admin yg buat)
+                            ->required(fn ($record) => $record && $record->status !== 'submitted') 
                             ->columnSpanFull(),
                     ])
                     ->disabled(fn ($record) => $record?->status === 'completed'),
@@ -136,6 +142,7 @@ class OutgoingLetterResource extends Resource
                         Forms\Components\Select::make('status')
                             ->label('Status Surat')
                             ->options([
+                                'submitted' => 'Pengajuan Baru',
                                 'draft' => 'Draft (Konsep)',
                                 'pending_approval' => 'Menunggu Persetujuan',
                                 'approved' => 'Disetujui',
@@ -156,16 +163,15 @@ class OutgoingLetterResource extends Resource
                     ->columns(1)
                     ->disabled(fn ($record) => $record?->status === 'completed'),
 
-                // --- SECTION 4: LAMPIRAN PENDUKUNG ---
+                // --- SECTION 4: LAMPIRAN ---
                 Forms\Components\Section::make('Lampiran Dokumen')
-                    ->description('Upload dokumen pendukung lainnya (jika ada).')
                     ->headerActions([
                         Forms\Components\Actions\Action::make('lihat_lampiran')
                             ->label('Lihat / Cetak Lampiran')
                             ->icon('heroicon-o-printer')
                             ->color('info')
                             ->visible(fn ($record) => $record && $record->attachments->count() > 0)
-                            ->modalHeading('Pilih Lampiran untuk Dicetak')
+                            ->modalHeading('Pilih Lampiran')
                             ->modalSubmitAction(false) 
                             ->modalCancelAction(fn ($action) => $action->label('Tutup'))
                             ->form([
@@ -175,8 +181,7 @@ class OutgoingLetterResource extends Resource
                                         $html = '<ul class="list-disc pl-4 space-y-2">';
                                         foreach ($record->attachments as $attachment) {
                                             $url = \Illuminate\Support\Facades\Storage::url($attachment->file_path);
-                                            $nama = $attachment->filename;
-                                            $html .= "<li><a href='{$url}' target='_blank' class='text-primary-600 hover:underline font-bold flex items-center gap-2'>{$nama}</a></li>";
+                                            $html .= "<li><a href='{$url}' target='_blank' class='text-primary-600 hover:underline font-bold'>{$attachment->filename}</a></li>";
                                         }
                                         $html .= '</ul>';
                                         return new \Illuminate\Support\HtmlString($html);
@@ -193,7 +198,6 @@ class OutgoingLetterResource extends Resource
                                     ->disk('public')
                                     ->directory('lampiran-surat-keluar')
                                     ->acceptedFileTypes(['application/pdf', 'image/*', 'application/msword'])
-                                    ->maxSize(10240)
                                     ->openable()
                                     ->required(),
                             ])
@@ -201,7 +205,6 @@ class OutgoingLetterResource extends Resource
                             ->addActionLabel('Tambah Lampiran'),
                     ])
                     ->disabled(fn ($record) => $record?->status === 'completed'),
-
             ]); 
     } 
 
@@ -218,6 +221,7 @@ class OutgoingLetterResource extends Resource
                     ->label('Status')
                     ->badge()
                     ->color(fn (string $state): string => match ($state) {
+                        'submitted' => 'info',
                         'draft' => 'gray',
                         'pending_approval' => 'warning',
                         'approved' => 'success',
@@ -227,6 +231,7 @@ class OutgoingLetterResource extends Resource
                         default => 'gray',
                     })
                     ->formatStateUsing(fn (string $state): string => match ($state) {
+                        'submitted' => 'Pengajuan Baru',
                         'draft' => 'Draft',
                         'pending_approval' => 'Menunggu',
                         'approved' => 'Disetujui',
@@ -243,7 +248,41 @@ class OutgoingLetterResource extends Resource
 
                 // GRUP TOMBOL PROSES
                 Tables\Actions\ActionGroup::make([
-                    // A. TOMBOL PRINT
+                    
+                    // 1. TERIMA / VERIFIKASI (Submitted -> Draft)
+                    Tables\Actions\Action::make('verify')
+                        ->label('Terima & Proses')
+                        ->icon('heroicon-o-check')
+                        ->color('success')
+                        ->visible(fn ($record) => $record->status === 'submitted')
+                        ->requiresConfirmation()
+                        ->modalHeading('Terima Pengajuan?')
+                        ->modalDescription('Status akan berubah menjadi Draft. Admin dapat mulai membuatkan surat.')
+                        ->action(fn (OutgoingLetter $record) => $record->update(['status' => 'draft'])),
+
+                    // 2. TOLAK PENGAJUAN (Submitted -> Rejected)
+                    Tables\Actions\Action::make('reject_initial')
+                        ->label('Tolak Pengajuan')
+                        ->icon('heroicon-o-x-mark')
+                        ->color('danger')
+                        ->visible(fn ($record) => $record->status === 'submitted')
+                        ->form([
+                            Forms\Components\Textarea::make('rejection_note')
+                                ->label('Alasan Penolakan')
+                                ->placeholder('Contoh: Data kurang lengkap, salah tujuan surat.')
+                                ->required(),
+                        ])
+                        ->action(function (OutgoingLetter $record, array $data) {
+                            $record->update([
+                                'status' => 'rejected',
+                                'rejection_note' => $data['rejection_note'],
+                                'rejected_at' => now(),
+                                'rejected_by' => Auth::id(),
+                            ]);
+                            Notification::make()->warning()->title('Pengajuan Ditolak')->send();
+                        }),
+
+                    // 3. PRINT (Completed)
                     Tables\Actions\Action::make('print')
                         ->label('Cetak PDF')
                         ->icon('heroicon-o-printer')
@@ -252,7 +291,7 @@ class OutgoingLetterResource extends Resource
                         ->openUrlInNewTab()
                         ->visible(fn (OutgoingLetter $record) => $record->status === 'completed'),
 
-                    // B. TOMBOL AMBIL QR CODE
+                    // 4. DOWNLOAD QR (Approved/Completed)
                     Tables\Actions\Action::make('download_qr')
                         ->label('Ambil QR Code')
                         ->icon('heroicon-o-qr-code')
@@ -261,36 +300,31 @@ class OutgoingLetterResource extends Resource
                         ->openUrlInNewTab()
                         ->visible(fn (OutgoingLetter $record) => in_array($record->status, ['approved', 'completed'])),
 
-                    // C. TOMBOL FINALISASI
+                    // 5. FINALISASI (Approved)
                     Tables\Actions\Action::make('finalize')
                         ->label('Finalisasi Surat')
                         ->icon('heroicon-o-lock-closed')
                         ->color('primary')
                         ->requiresConfirmation()
-                        ->modalHeading('Finalisasi Surat?')
-                        ->modalDescription('Pastikan nomor surat sudah diisi dan FILE FINAL sudah diupload. Surat akan dikunci.')
                         ->visible(fn (OutgoingLetter $record) => $record->status === 'approved')
                         ->action(function (OutgoingLetter $record) {
                             if (empty($record->letter_number)) {
                                 Notification::make()->danger()->title('Gagal: Nomor Surat Kosong!')->send();
                                 return;
                             }
-                        
                             if (empty($record->final_file_path)) {
                                 Notification::make()->danger()->title('Gagal: File Surat Belum Diupload!')->send();
                                 return;
                             }
-
                             $updateData = ['status' => 'completed'];
                             if (empty($record->signature_code)) {
                                 $updateData['signature_code'] = (string) \Illuminate\Support\Str::uuid();
                             }
-
                             $record->update($updateData);
                             Notification::make()->success()->title('Surat Final & Terkunci')->send();
                         }),
 
-                    // D. TOMBOL AJUKAN
+                    // 6. AJUKAN KE PIMPINAN (Draft/Revisi -> Pending)
                     Tables\Actions\Action::make('submit')
                         ->label('Ajukan Verifikasi')
                         ->icon('heroicon-o-paper-airplane')
@@ -299,7 +333,7 @@ class OutgoingLetterResource extends Resource
                         ->visible(fn (OutgoingLetter $record) => in_array($record->status, ['draft', 'revision_needed']))
                         ->action(fn (OutgoingLetter $record) => $record->update(['status' => 'pending_approval'])),
 
-                    // E. TOMBOL SETUJUI (Pimpinan)
+                    // 7. SETUJUI (Pending -> Approved)
                     Tables\Actions\Action::make('approve')
                         ->label('Setujui')
                         ->icon('heroicon-o-check-badge')
@@ -313,10 +347,10 @@ class OutgoingLetterResource extends Resource
                                 'approved_at' => now(),
                                 'signature_code' => $signatureCode,
                             ]);
-                            Notification::make()->success()->title('Surat Disetujui & QR Code Dibuat')->send();
+                            Notification::make()->success()->title('Surat Disetujui')->send();
                         }),
 
-                    // F. TOMBOL MINTA REVISI (Pimpinan)
+                    // 8. MINTA REVISI (Pending -> Revision)
                     Tables\Actions\Action::make('request_revision')
                         ->label('Minta Revisi')
                         ->icon('heroicon-o-pencil-square')
@@ -337,7 +371,8 @@ class OutgoingLetterResource extends Resource
                 ])
                 ->label('Proses')
                 ->icon('heroicon-m-ellipsis-vertical')
-                ->color('info'),
+                ->color('info')
+                ->tooltip('Menu Aksi'),
             ]); 
     }
 

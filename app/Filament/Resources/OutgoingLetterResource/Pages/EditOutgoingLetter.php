@@ -22,26 +22,62 @@ class EditOutgoingLetter extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            // 1. TOMBOL TERIMA (Submitted -> Draft)
+            Actions\Action::make('verify')
+                ->label('Terima Pengajuan')
+                ->icon('heroicon-o-check')
+                ->color('success')
+                ->visible(fn () => $this->record->status === 'submitted')
+                ->requiresConfirmation()
+                ->modalHeading('Terima Pengajuan?')
+                ->modalDescription('Status akan berubah menjadi Draft. Anda dapat mulai memproses surat ini.')
+                ->action(function () {
+                    $this->record->update(['status' => 'draft']);
+                    Notification::make()->success()->title('Pengajuan Diterima')->send();
+                    // Refresh halaman agar form terbuka (tidak disabled)
+                    $this->redirect(route('filament.admin.resources.outgoing-letters.edit', $this->record));
+                }),
+
+            // 2. TOMBOL TOLAK (Submitted -> Rejected)
+            Actions\Action::make('reject_initial')
+                ->label('Tolak Pengajuan')
+                ->icon('heroicon-o-x-mark')
+                ->color('danger')
+                ->visible(fn () => $this->record->status === 'submitted')
+                ->form([
+                    \Filament\Forms\Components\Textarea::make('rejection_note')
+                        ->label('Alasan Penolakan')
+                        ->required(),
+                ])
+                ->action(function (array $data) {
+                    $this->record->update([
+                        'status' => 'rejected',
+                        'rejection_note' => $data['rejection_note'],
+                        'rejected_at' => now(),
+                        'rejected_by' => Auth::id(),
+                    ]);
+                    Notification::make()->warning()->title('Pengajuan Ditolak')->send();
+                    $this->redirect($this->getResource()::getUrl('index'));
+                }),
+
+            // --- TOMBOL LAINNYA (YANG SUDAH ADA SEBELUMNYA) ---
+            
             Actions\Action::make('download_qr')
                 ->label('Ambil TTD Digital')
                 ->icon('heroicon-o-qr-code')
-                ->color('success') 
+                ->color('success')
                 ->url(fn () => route('outgoing-letters.download-qr', $this->record))
-                ->openUrlInNewTab() 
+                ->openUrlInNewTab()
                 ->visible(fn () => in_array($this->record->status, ['approved', 'completed'])),
 
-            // 1. Tombol Hapus (Hilang jika surat sudah Final)
             Actions\DeleteAction::make()
                 ->visible(fn () => $this->record->status !== 'completed'),
 
-            // 2. TOMBOL AJUKAN (Draft -> Pending)
             Actions\Action::make('submit')
                 ->label('Ajukan Verifikasi')
                 ->icon('heroicon-o-paper-airplane')
                 ->color('blue')
                 ->requiresConfirmation()
-                ->modalHeading('Ajukan Surat?')
-                ->modalDescription('Surat akan dikirim ke pimpinan untuk diperiksa.')
                 ->visible(fn () => in_array($this->record->status, ['draft', 'revision_needed']))
                 ->action(function () {
                     $this->record->update(['status' => 'pending_approval']);
@@ -49,7 +85,6 @@ class EditOutgoingLetter extends EditRecord
                     $this->redirect($this->getResource()::getUrl('index'));
                 }),
 
-            // 3. TOMBOL APPROVE (Pending -> Approved)
             Actions\Action::make('approve')
                 ->label('Setujui Surat')
                 ->icon('heroicon-o-check-badge')
@@ -62,21 +97,16 @@ class EditOutgoingLetter extends EditRecord
                         'approved_at' => now(),
                         'signature_code' => (string) \Illuminate\Support\Str::uuid(), 
                     ]);
-                    
-                    Notification::make()->success()->title('Surat Disetujui & QR Code Dibuat')->send();
+                    Notification::make()->success()->title('Surat Disetujui')->send();
                 }),
 
-            // 4. TOMBOL MINTA REVISI (Pending -> Revision Needed)
             Actions\Action::make('request_revision')
                 ->label('Minta Revisi')
                 ->icon('heroicon-o-pencil-square')
                 ->color('warning')
                 ->visible(fn () => $this->record->status === 'pending_approval')
                 ->form([
-                    Textarea::make('instruction')
-                        ->label('Catatan Revisi')
-                        ->placeholder('Jelaskan apa yang harus diperbaiki...')
-                        ->required(),
+                    Textarea::make('instruction')->label('Catatan Revisi')->required(),
                 ])
                 ->action(function (array $data) {
                     OutgoingDisposition::create([
@@ -84,34 +114,27 @@ class EditOutgoingLetter extends EditRecord
                         'user_id' => Auth::id(),
                         'instruction' => $data['instruction'],
                     ]);
-
                     $this->record->update(['status' => 'revision_needed']);
-
-                    Notification::make()->warning()->title('Surat Dikembalikan untuk Revisi')->send();
+                    Notification::make()->warning()->title('Dikembalikan untuk Revisi')->send();
                     $this->redirect($this->getResource()::getUrl('index'));
                 }),
 
-            // 5. TOMBOL FINALISASI (Approved -> Completed)
             Actions\Action::make('finalize')
                 ->label('Finalisasi Surat')
                 ->icon('heroicon-o-lock-closed')
                 ->color('primary')
                 ->requiresConfirmation()
-                ->modalHeading('Finalisasi Surat?')
-                ->modalDescription('Setelah ini surat TIDAK BISA DIEDIT LAGI & Siap Cetak. Pastikan nomor surat sudah terisi.')
                 ->visible(fn () => $this->record->status === 'approved')
                 ->action(function () {
                     if (empty($this->record->letter_number)) {
-                        Notification::make()->danger()->title('Gagal: Nomor Surat Wajib Diisi sebelum Finalisasi!')->send();
+                        Notification::make()->danger()->title('Nomor Surat Kosong!')->send();
                         return;
                     }
-
                     $this->record->update(['status' => 'completed']);
-                    Notification::make()->success()->title('Surat Final & Terkunci')->send();
+                    Notification::make()->success()->title('Surat Final')->send();
                     $this->redirect($this->getResource()::getUrl('index'));
                 }),
             
-            // 6. TOMBOL PRINT (Hanya Muncul kalau sudah Completed/Final)
             Actions\Action::make('print')
                 ->label('Cetak PDF')
                 ->icon('heroicon-o-printer')
