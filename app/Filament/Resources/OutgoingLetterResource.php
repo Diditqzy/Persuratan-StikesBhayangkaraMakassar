@@ -9,14 +9,11 @@ use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\FileUpload;
-use Filament\Forms\Components\Section;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Filament\Tables\Actions\ActionGroup;
-use Filament\Tables\Actions\Action;
 use Filament\Notifications\Notification;
-use Illuminate\Support\Facades\Auth; 
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Database\Eloquent\Builder;
 
 class OutgoingLetterResource extends Resource
@@ -30,25 +27,23 @@ class OutgoingLetterResource extends Resource
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()
-            ->with(['type', 'user', 'signer']) 
-            ->withoutGlobalScopes(); 
+            ->with(['type', 'user', 'signer'])
+            ->withoutGlobalScopes();
     }
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                // --- SECTION 0: ALERT INFO (Revisi / Ditolak) ---
+                // --- SECTION 0: ALERT INFO ---
                 Forms\Components\Section::make('Status Pengembalian')
                     ->schema([
-                        // Jika REVISI
                         Forms\Components\Placeholder::make('revisi_note')
                             ->label('Catatan Revisi Pimpinan:')
                             ->content(fn ($record) => $record?->dispositions()->latest()->first()?->instruction)
                             ->extraAttributes(['class' => 'text-warning-600 font-bold text-lg'])
                             ->visible(fn ($record) => $record?->status === 'revision_needed'),
                         
-                        // Jika DITOLAK
                         Forms\Components\Placeholder::make('reject_note_view')
                             ->label('Alasan Penolakan:')
                             ->content(fn ($record) => $record->rejection_note)
@@ -110,17 +105,15 @@ class OutgoingLetterResource extends Resource
                             )
                             ->dehydrated() 
                             ->maxLength(255),
-
-                        Forms\Components\RichEditor::make('content_data')
-                            ->label('Isi Surat / Keterangan')
-                            ->columnSpanFull(),
+                        
+                        // CONTENT DATA DIHAPUS TOTAL DI SINI
                     ])
                     ->columns(2)
                     ->disabled(fn ($record) => $record?->status === 'completed'),
 
                 // --- SECTION 2: FILE SURAT ---
                 Forms\Components\Section::make('File Surat')
-                    ->description('Upload file surat di sini. Awalnya upload DRAFT untuk diperiksa pimpinan. Jika sudah disetujui, upload file FINAL.')
+                    ->description('Upload file surat PDF di sini (baik Draft maupun Final).')
                     ->schema([
                         Forms\Components\FileUpload::make('final_file_path') 
                             ->label('Dokumen Surat (PDF)')
@@ -130,7 +123,7 @@ class OutgoingLetterResource extends Resource
                             ->maxSize(10240) 
                             ->downloadable() 
                             ->openable() 
-                            // Required cuma kalau statusnya bukan submitted (User submit tanpa file surat, admin yg buat)
+                            // Wajib diisi Admin jika status bukan submitted
                             ->required(fn ($record) => $record && $record->status !== 'submitted') 
                             ->columnSpanFull(),
                     ])
@@ -167,11 +160,11 @@ class OutgoingLetterResource extends Resource
                 Forms\Components\Section::make('Lampiran Dokumen')
                     ->headerActions([
                         Forms\Components\Actions\Action::make('lihat_lampiran')
-                            ->label('Lihat / Cetak Lampiran')
-                            ->icon('heroicon-o-printer')
+                            ->label('Lihat Lampiran')
+                            ->icon('heroicon-o-eye')
                             ->color('info')
                             ->visible(fn ($record) => $record && $record->attachments->count() > 0)
-                            ->modalHeading('Pilih Lampiran')
+                            ->modalHeading('Lampiran User')
                             ->modalSubmitAction(false) 
                             ->modalCancelAction(fn ($action) => $action->label('Tutup'))
                             ->form([
@@ -243,29 +236,44 @@ class OutgoingLetterResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->actions([
-                Tables\Actions\EditAction::make()->visible(fn ($record) => $record->status !== 'completed'),
-                Tables\Actions\DeleteAction::make()->visible(fn ($record) => $record->status !== 'completed'),
+                // EDIT & DELETE (Hanya Admin)
+                Tables\Actions\EditAction::make()
+                    ->visible(fn ($record) => 
+                        Auth::user()->role === 'admin' && 
+                        $record->status !== 'completed'
+                    ),
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn ($record) => 
+                        Auth::user()->role === 'admin' && 
+                        $record->status !== 'completed'
+                    ),
 
                 // GRUP TOMBOL PROSES
                 Tables\Actions\ActionGroup::make([
                     
-                    // 1. TERIMA / VERIFIKASI (Submitted -> Draft)
+                    // 1. TERIMA / VERIFIKASI (Admin Only)
                     Tables\Actions\Action::make('verify')
                         ->label('Terima & Proses')
                         ->icon('heroicon-o-check')
                         ->color('success')
-                        ->visible(fn ($record) => $record->status === 'submitted')
+                        ->visible(fn ($record) => 
+                            Auth::user()->role === 'admin' && 
+                            $record->status === 'submitted'
+                        )
                         ->requiresConfirmation()
                         ->modalHeading('Terima Pengajuan?')
                         ->modalDescription('Status akan berubah menjadi Draft. Admin dapat mulai membuatkan surat.')
                         ->action(fn (OutgoingLetter $record) => $record->update(['status' => 'draft'])),
 
-                    // 2. TOLAK PENGAJUAN (Submitted -> Rejected)
+                    // 2. TOLAK PENGAJUAN (Admin Only)
                     Tables\Actions\Action::make('reject_initial')
                         ->label('Tolak Pengajuan')
                         ->icon('heroicon-o-x-mark')
                         ->color('danger')
-                        ->visible(fn ($record) => $record->status === 'submitted')
+                        ->visible(fn ($record) => 
+                            Auth::user()->role === 'admin' && 
+                            $record->status === 'submitted'
+                        )
                         ->form([
                             Forms\Components\Textarea::make('rejection_note')
                                 ->label('Alasan Penolakan')
@@ -282,7 +290,7 @@ class OutgoingLetterResource extends Resource
                             Notification::make()->warning()->title('Pengajuan Ditolak')->send();
                         }),
 
-                    // 3. PRINT (Completed)
+                    // 3. PRINT (Admin/Pimpinan jika Completed)
                     Tables\Actions\Action::make('print')
                         ->label('Cetak PDF')
                         ->icon('heroicon-o-printer')
@@ -291,22 +299,28 @@ class OutgoingLetterResource extends Resource
                         ->openUrlInNewTab()
                         ->visible(fn (OutgoingLetter $record) => $record->status === 'completed'),
 
-                    // 4. DOWNLOAD QR (Approved/Completed)
+                    // 4. DOWNLOAD QR (Admin Only - Buat ditempel di Word)
                     Tables\Actions\Action::make('download_qr')
                         ->label('Ambil QR Code')
                         ->icon('heroicon-o-qr-code')
                         ->color('success')
                         ->url(fn (OutgoingLetter $record) => route('outgoing-letters.download-qr', $record))
                         ->openUrlInNewTab()
-                        ->visible(fn (OutgoingLetter $record) => in_array($record->status, ['approved', 'completed'])),
+                        ->visible(fn (OutgoingLetter $record) => 
+                            Auth::user()->role === 'admin' && // Cuma Admin
+                            in_array($record->status, ['approved', 'completed'])
+                        ),
 
-                    // 5. FINALISASI (Approved)
+                    // 5. FINALISASI (Admin Only)
                     Tables\Actions\Action::make('finalize')
                         ->label('Finalisasi Surat')
                         ->icon('heroicon-o-lock-closed')
                         ->color('primary')
                         ->requiresConfirmation()
-                        ->visible(fn (OutgoingLetter $record) => $record->status === 'approved')
+                        ->visible(fn (OutgoingLetter $record) => 
+                            Auth::user()->role === 'admin' && 
+                            $record->status === 'approved'
+                        )
                         ->action(function (OutgoingLetter $record) {
                             if (empty($record->letter_number)) {
                                 Notification::make()->danger()->title('Gagal: Nomor Surat Kosong!')->send();
@@ -324,22 +338,28 @@ class OutgoingLetterResource extends Resource
                             Notification::make()->success()->title('Surat Final & Terkunci')->send();
                         }),
 
-                    // 6. AJUKAN KE PIMPINAN (Draft/Revisi -> Pending)
+                    // 6. AJUKAN KE PIMPINAN (Admin Only)
                     Tables\Actions\Action::make('submit')
                         ->label('Ajukan Verifikasi')
                         ->icon('heroicon-o-paper-airplane')
                         ->color('blue')
                         ->requiresConfirmation()
-                        ->visible(fn (OutgoingLetter $record) => in_array($record->status, ['draft', 'revision_needed']))
+                        ->visible(fn (OutgoingLetter $record) => 
+                            Auth::user()->role === 'admin' && 
+                            in_array($record->status, ['draft', 'revision_needed'])
+                        )
                         ->action(fn (OutgoingLetter $record) => $record->update(['status' => 'pending_approval'])),
 
-                    // 7. SETUJUI (Pending -> Approved)
+                    // 7. SETUJUI (PIMPINAN ONLY - HARAM BUAT ADMIN)
                     Tables\Actions\Action::make('approve')
-                        ->label('Setujui')
+                        ->label('Setujui & TTD')
                         ->icon('heroicon-o-check-badge')
                         ->color('success')
                         ->requiresConfirmation()
-                        ->visible(fn (OutgoingLetter $record) => $record->status === 'pending_approval')
+                        ->visible(fn (OutgoingLetter $record) => 
+                            Auth::user()->role === 'pimpinan' && // CUMA PIMPINAN
+                            $record->status === 'pending_approval'
+                        )
                         ->action(function (OutgoingLetter $record) {
                             $signatureCode = (string) \Illuminate\Support\Str::uuid();
                             $record->update([
@@ -350,12 +370,15 @@ class OutgoingLetterResource extends Resource
                             Notification::make()->success()->title('Surat Disetujui')->send();
                         }),
 
-                    // 8. MINTA REVISI (Pending -> Revision)
+                    // 8. MINTA REVISI (PIMPINAN ONLY)
                     Tables\Actions\Action::make('request_revision')
                         ->label('Minta Revisi')
                         ->icon('heroicon-o-pencil-square')
                         ->color('warning')
-                        ->visible(fn (OutgoingLetter $record) => $record->status === 'pending_approval')
+                        ->visible(fn (OutgoingLetter $record) => 
+                            Auth::user()->role === 'pimpinan' && // CUMA PIMPINAN
+                            $record->status === 'pending_approval'
+                        )
                         ->form([
                             Forms\Components\Textarea::make('instruction')->label('Catatan Revisi')->required(),
                         ])

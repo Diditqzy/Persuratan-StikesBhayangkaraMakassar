@@ -44,10 +44,10 @@
                         <x-text-input id="subject" class="block mt-1 w-full" type="text" name="subject" :value="old('subject', $letter->subject)" required />
                     </div>
 
-                    <div class="mb-4">
+                    {{-- <div class="mb-4">
                         <x-input-label for="content_data" :value="__('Keterangan / Isi Ringkas')" />
                         <textarea id="content_data" name="content_data" rows="4" class="block mt-1 w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" required>{{ old('content_data', $letter->content_data) }}</textarea>
-                    </div>
+                    </div> --}}
 
                     <div class="flex items-center justify-end mt-6">
                         <a href="{{ route('user.letters.index') }}" class="text-gray-600 hover:text-gray-900 mr-4 font-semibold">Batal</a>

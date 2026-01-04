@@ -3,7 +3,6 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\LetterTypeResource\Pages;
-use App\Filament\Resources\LetterTypeResource\RelationManagers;
 use App\Models\LetterType;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -11,48 +10,35 @@ use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Toggle;
-use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Set;
-use Filament\Forms\Get;
 use Filament\Tables\Columns\TextColumn;
-use Filament\Tables\Columns\IconColumn;
 use Illuminate\Support\Str;
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class LetterTypeResource extends Resource
 {
     protected static ?string $model = LetterType::class;
-
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-    protected static ?string $navigationLabel = 'Jenis Surat'; // Menu di Sidebar
-    protected static ?string $modelLabel = 'Jenis Surat'; // Label di tombol
+    protected static ?string $navigationIcon = 'heroicon-o-tag';
+    protected static ?string $navigationLabel = 'Jenis Surat';
+    protected static ?string $modelLabel = 'Jenis Surat';
+    protected static ?string $navigationGroup = 'Pengaturan';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
                 TextInput::make('name')
+                    ->label('Nama Jenis Surat')
                     ->required()
                     ->maxLength(255)
-                    ->live(onBlur: true) // Aktifkan live update
-                    // Otomatis isi kolom Code saat Name diketik
-                    ->afterStateUpdated(fn (Set $set, ?string $state) => $set('code', Str::slug($state))), 
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(fn (Set $set, ?string $state) => $set('code', Str::slug($state))),
                 
                 TextInput::make('code')
+                    ->label('Kode Surat')
                     ->required()
-                    ->maxLength(255),
-
-                Toggle::make('has_template')
-                    ->label('Punya Template Khusus?')
-                    ->reactive(), // Biar form di bawahnya bisa muncul/hilang
-
-                RichEditor::make('template_content')
-                    ->label('Isi Template Surat')
-                    // Hanya muncul kalau toggle 'has_template' dinyalakan
-                    ->hidden(fn (Get $get) => ! $get('has_template')) 
-                    ->columnSpanFull(),
+                    ->maxLength(50)
+                    ->placeholder('Contoh: SM / SK / UM'),
             ]);
     }
 
@@ -60,40 +46,22 @@ class LetterTypeResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('name')
-                    ->searchable()
-                    ->sortable(),
-                TextColumn::make('code')
-                    ->badge(), // Tampil gaya lencana
-                IconColumn::make('has_template')
-                    ->boolean()
-                    ->label('Template?'),
-                TextColumn::make('created_at')
-                    ->dateTime()
-                    ->sortable()
-                    ->toggleable(isToggledHiddenByDefault: true),
-            ])
-            ->filters([
-                //
+                TextColumn::make('name')->label('Nama')->sortable()->searchable(),
+                TextColumn::make('code')->label('Kode')->badge()->sortable(),
             ])
             ->actions([
-                Tables\Actions\EditAction::make(),
-                Tables\Actions\DeleteAction::make(),
-            ])
-            ->bulkActions([
-                Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
-                ]),
+                Tables\Actions\EditAction::make()
+                    ->visible(fn () => Auth::user()->role === 'admin'),
+                
+                // DELETE DIBATASI: ID 1 (Template Sistem) TIDAK BOLEH DIHAPUS
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn ($record) => 
+                        Auth::user()->role === 'admin' && 
+                        $record->id !== 1 
+                    ),
             ]);
-        }
-
-    public static function getRelations(): array
-    {
-        return [
-            //
-        ];
     }
-
+    
     public static function getPages(): array
     {
         return [

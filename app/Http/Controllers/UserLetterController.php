@@ -41,7 +41,7 @@ class UserLetterController extends Controller
             'type_id' => 'required|exists:letter_types,id',
             'recipient' => 'required|string|max:255',
             'subject' => 'required|string|max:255',
-            'content_data' => 'required|string',
+            // 'content_data' => 'required|string',
             'attachments.*' => 'file|mimes:pdf,jpg,png|max:2048', 
         ]);
 
@@ -54,14 +54,14 @@ class UserLetterController extends Controller
             'letter_date' => now(),
             'recipient' => $request->recipient,
             'subject' => $request->subject,
-            'content_data' => $request->content_data,
+            'content_data' => '-',
             'status' => 'submitted', 
         ]);
 
         return redirect()->route('user.letters.index')
             ->with('success', 'Surat berhasil diajukan! Menunggu verifikasi admin.');
     }
-    
+
     public function edit(OutgoingLetter $letter)
     {
         // Validasi Kepemilikan
@@ -86,14 +86,14 @@ class UserLetterController extends Controller
             'type_id' => 'required|exists:letter_types,id',
             'recipient' => 'required|string|max:255',
             'subject' => 'required|string|max:255',
-            'content_data' => 'required|string',
+            // 'content_data' => 'required|string',
         ]);
 
         $letter->update([
             'type_id' => $request->type_id,
             'recipient' => $request->recipient,
             'subject' => $request->subject,
-            'content_data' => $request->content_data,
+            // 'content_data' => $request->content_data,
             'status' => 'submitted', 
         ]);
 

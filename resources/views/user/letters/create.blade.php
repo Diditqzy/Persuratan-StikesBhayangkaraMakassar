@@ -35,11 +35,11 @@
                         <x-input-error :messages="$errors->get('subject')" class="mt-2" />
                     </div>
 
-                    <div class="mb-4">
+                    {{-- <div class="mb-4">
                         <x-input-label for="content_data" :value="__('Keterangan / Isi Ringkas')" />
                         <textarea id="content_data" name="content_data" rows="4" class="block mt-1 w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" required placeholder="Jelaskan detail keperluan surat di sini...">{{ old('content_data') }}</textarea>
                         <x-input-error :messages="$errors->get('content_data')" class="mt-2" />
-                    </div>
+                    </div> --}}
 
                     <div class="flex items-center justify-end mt-6">
                         <a href="{{ route('user.letters.index') }}" class="text-gray-600 hover:text-gray-900 mr-4 font-semibold">Batal</a>
