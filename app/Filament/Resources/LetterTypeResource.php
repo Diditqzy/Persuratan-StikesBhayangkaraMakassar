@@ -2,18 +2,22 @@
 
 namespace App\Filament\Resources;
 
-use App\Filament\Resources\LetterTypeResource\Pages;
-use App\Models\LetterType;
 use Filament\Forms;
-use Filament\Forms\Form;
-use Filament\Resources\Resource;
 use Filament\Tables;
-use Filament\Tables\Table;
-use Filament\Forms\Components\TextInput;
 use Filament\Forms\Set;
-use Filament\Tables\Columns\TextColumn;
+use Filament\Forms\Form;
+use App\Models\LetterType;
+use Filament\Tables\Table;
 use Illuminate\Support\Str;
+use Filament\Resources\Resource;
 use Illuminate\Support\Facades\Auth;
+use Filament\Forms\Components\Select;
+use Filament\Forms\Components\Toggle;
+use Filament\Forms\Components\Section;
+use Filament\Tables\Columns\TextColumn;
+use Filament\Forms\Components\Repeater; 
+use Filament\Forms\Components\TextInput;
+use App\Filament\Resources\LetterTypeResource\Pages;
 
 class LetterTypeResource extends Resource
 {
@@ -30,18 +34,51 @@ class LetterTypeResource extends Resource
                 TextInput::make('name')
                     ->label('Nama Jenis Surat')
                     ->required()
-                    ->maxLength(255)
                     ->live(onBlur: true)
-                    ->afterStateUpdated(fn (Set $set, ?string $state) => $set('code', Str::slug($state))),
+                    ->afterStateUpdated(fn ($set, $state) => $set('code', Str::slug($state))),
                 
                 TextInput::make('code')
                     ->label('Kode Surat')
-                    ->required()
-                    ->maxLength(50)
-                    ->placeholder('Contoh: SM / SK / UM'),
+                    ->required(),
+
+                // --- FORM BUILDER SECTION ---
+                Section::make('Desain Formulir Pengajuan')
+                    ->description('Atur kolom inputan yang harus diisi mahasiswa. Klik "Tambah Inputan" untuk menambah pertanyaan.')
+                    ->schema([
+                        Repeater::make('form_config')
+                            ->label('Daftar Inputan')
+                            ->schema([
+                                // 1. Label Pertanyaan
+                                TextInput::make('label')
+                                    ->label('Nama Input / Pertanyaan')
+                                    ->placeholder('Contoh: Semester, No. HP, Upload KTP')
+                                    ->required()
+                                    ->columnSpan(2),
+                                
+                                // 2. Jenis Input
+                                Select::make('type')
+                                    ->label('Jenis Input')
+                                    ->options([
+                                        'text' => 'Teks / Angka / Tanggal (Input Biasa)',
+                                        'file' => 'Upload File (PDF/Gambar)',
+                                    ])
+                                    ->required(),
+                                
+                                // 3. Opsi Wajib Isi
+                                Toggle::make('required')
+                                    ->label('Wajib Diisi?')
+                                    ->default(true)
+                                    ->inline(false),
+                            ])
+                            ->columns(4) // Agar tampil rapi ke samping
+                            ->addActionLabel('Tambah Inputan Baru')
+                            ->reorderableWithButtons() // Bisa digeser urutannya
+                            ->collapsible() // Bisa dilipat biar ga penuh
+                            ->cloneable() // Bisa diduplikasi
+                            ->itemLabel(fn (array $state): ?string => $state['label'] ?? null), // Label header repeater ambil dari inputan label
+                    ]),
             ]);
     }
-
     public static function table(Table $table): Table
     {
         return $table

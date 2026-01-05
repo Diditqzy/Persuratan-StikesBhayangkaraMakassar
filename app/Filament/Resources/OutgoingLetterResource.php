@@ -6,6 +6,7 @@ use App\Filament\Resources\OutgoingLetterResource\Pages;
 use App\Models\OutgoingLetter;
 use App\Models\OutgoingDisposition;
 use Filament\Forms;
+use Filament\Forms\Get;
 use Filament\Forms\Form;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\FileUpload;
@@ -64,20 +65,19 @@ class OutgoingLetterResource extends Resource
                             ->label('Jenis Surat')
                             ->searchable()
                             ->preload()
-                            ->required(),
+                            ->required()
+                            ->live(),
 
                         Forms\Components\Select::make('signer_id')
-                            ->label('Penanda Tangan (Pimpinan)')
+                            ->label('Penanda Tangan')
                             ->options(function () {
-                                return \App\Models\Signer::with('user')
-                                    ->get()
-                                    ->mapWithKeys(function ($signer) {
-                                        return [$signer->id => $signer->user->name . ' - ' . $signer->position];
-                                    });
+                                return \App\Models\Signer::with('user')->get()->mapWithKeys(fn ($s) => [$s->id => $s->user->name . ' - ' . $s->position]);
                             })
-                            ->searchable()
-                            ->preload()
-                            ->required(),
+                            ->default(fn () => \App\Models\Signer::where('is_active', true)->first()->id ?? null)
+                            ->required()
+                            ->dehydrated()
+                            ->visible(fn ($record) => $record && in_array($record->status, ['approved', 'completed']))
+                            ->disabled(), 
 
                         Forms\Components\TextInput::make('subject')
                             ->label('Perihal / Judul')
@@ -86,7 +86,7 @@ class OutgoingLetterResource extends Resource
                             ->columnSpanFull(),
 
                         Forms\Components\TextInput::make('recipient')
-                            ->label('Tujuan Surat (Kepada Yth.)')
+                            ->label('Tujuan Surat')
                             ->required()
                             ->maxLength(255),
 
@@ -97,16 +97,57 @@ class OutgoingLetterResource extends Resource
                         
                         Forms\Components\TextInput::make('letter_number')
                             ->label('Nomor Surat')
-                            ->placeholder('Otomatis diisi saat status Disetujui')
-                            ->disabled(fn ($record) => 
-                                !$record || 
-                                in_array($record->status, ['submitted', 'draft', 'revision_needed', 'pending_approval']) || 
-                                $record->status === 'completed'
-                            )
+                            ->placeholder('Otomatis')
+                            ->disabled(fn ($record) => !$record || in_array($record->status, ['submitted', 'draft', 'revision_needed', 'pending_approval']) || $record->status === 'completed')
                             ->dehydrated() 
                             ->maxLength(255),
-                        
-                        // CONTENT DATA DIHAPUS TOTAL DI SINI
+
+                        Forms\Components\Group::make()
+                            ->schema([
+                                Forms\Components\Placeholder::make('separator_dynamic')
+                                    ->label('Isian Formulir Tambahan')
+                                    ->content('Data di bawah ini diisi oleh pemohon sesuai jenis surat.')
+                                    ->extraAttributes(['class' => 'font-bold text-primary-600 border-b pb-1 mt-4']),
+
+                                Forms\Components\KeyValue::make('additional_data_view')
+                                    ->label('Jawaban Formulir')
+                                    ->statePath('additional_data') 
+                                    ->formatStateUsing(function ($state) {
+                                        if (empty($state)) return [];
+                                        return collect($state)
+                                            ->reject(fn($val) => is_array($val) && isset($val['path']))
+                                            ->toArray();
+                                    })
+                                    ->disabled() 
+                                    ->dehydrated(false), 
+
+                                Forms\Components\Placeholder::make('additional_files_view')
+                                    ->label('Lampiran Pendukung')
+                                    ->content(function ($record) {
+                                        if (!$record || empty($record->additional_data)) return '-';
+                                        
+                                        $files = collect($record->additional_data)
+                                            ->filter(fn($val) => is_array($val) && isset($val['path']));
+
+                                        if ($files->isEmpty()) return 'Tidak ada lampiran tambahan.';
+
+                                        $html = '<ul class="list-disc pl-4 space-y-1">';
+                                        foreach ($files as $label => $data) {
+                                            $url = \Illuminate\Support\Facades\Storage::url($data['path']);
+                                            $name = $data['original_name'] ?? 'File';
+                                            $html .= "<li><span class='font-medium'>{$label}:</span> <a href='{$url}' target='_blank' class='text-primary-600 hover:underline hover:text-primary-500'>Download ({$name})</a></li>";
+                                        }
+                                        $html .= '</ul>';
+
+                                        return new \Illuminate\Support\HtmlString($html);
+                                    })
+                                    ->visible(fn ($record) => 
+                                        $record && 
+                                        collect($record->additional_data)->contains(fn($val) => is_array($val) && isset($val['path']))
+                                    ),
+                            ])
+                            ->columnSpanFull()
+                            ->visible(fn ($record) => $record && !empty($record->additional_data)),
                     ])
                     ->columns(2)
                     ->disabled(fn ($record) => $record?->status === 'completed'),
@@ -122,12 +163,16 @@ class OutgoingLetterResource extends Resource
                             ->acceptedFileTypes(['application/pdf'])
                             ->maxSize(10240) 
                             ->downloadable() 
-                            ->openable() 
-                            // Wajib diisi Admin jika status bukan submitted
-                            ->required(fn ($record) => $record && $record->status !== 'submitted') 
+                            ->openable()
+                            ->required(fn (Forms\Get $get, $record) => 
+                                $get('type_id') != 1 && 
+                                $record && $record->status !== 'submitted'
+                            ) 
                             ->columnSpanFull(),
                     ])
+                    ->visible(fn (Forms\Get $get) => $get('type_id') != 1)
                     ->disabled(fn ($record) => $record?->status === 'completed'),
+
 
                 // --- SECTION 3: STATUS ---
                 Forms\Components\Section::make('Status & Verifikasi')
@@ -326,8 +371,8 @@ class OutgoingLetterResource extends Resource
                                 Notification::make()->danger()->title('Gagal: Nomor Surat Kosong!')->send();
                                 return;
                             }
-                            if (empty($record->final_file_path)) {
-                                Notification::make()->danger()->title('Gagal: File Surat Belum Diupload!')->send();
+                            if ($record->type_id != 1 && empty($record->final_file_path)) {
+                                Notification::make()->danger()->title('Gagal: File Surat Manual Belum Diupload!')->send();
                                 return;
                             }
                             $updateData = ['status' => 'completed'];
