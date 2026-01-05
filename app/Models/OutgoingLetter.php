@@ -14,7 +14,7 @@ class OutgoingLetter extends Model
         'letter_date' => 'date',
         'verified_at' => 'datetime',
         'approved_at' => 'datetime',
-        
+        'additional_data' => 'array',
     ];
 
     protected $guarded = ['id'];
