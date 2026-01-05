@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Buat Pengajuan Surat') }}
+            Pengajuan: {{ $type->name }}
         </h2>
     </x-slot>
 
@@ -11,45 +11,79 @@
                 
                 <form action="{{ route('user.letters.store') }}" method="POST" enctype="multipart/form-data">
                     @csrf
+                    
+                    <input type="hidden" name="type_id" value="{{ $type->id }}">
 
-                    <div class="mb-4">
-                        <x-input-label for="type_id" :value="__('Jenis Surat')" />
-                        <select name="type_id" id="type_id" class="block mt-1 w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" required>
-                            <option value="">-- Pilih Jenis Surat --</option>
-                            @foreach($types as $type)
-                                <option value="{{ $type->id }}">{{ $type->name }}</option>
+                    @if(!empty($formConfig))
+                        <div class="border-t pt-4 mt-2">
+                            <h3 class="text-lg font-semibold mb-6 text-gray-800 border-b pb-2">
+                                Lengkapi Data Berikut
+                            </h3>
+                            
+                            @foreach($formConfig as $field)
+                                @php
+                                    // Slugify label untuk name & id
+                                    $key = \Illuminate\Support\Str::slug($field['label']);
+                                    $isRequired = $field['required'] ?? false; // Default false jika key tidak ada
+                                    $label = $field['label'] . ($isRequired ? ' *' : '');
+                                @endphp
+
+                                <div class="mb-6">
+                                    <label for="{{ $key }}" class="block font-medium text-sm text-gray-700 mb-2">
+                                        {{ $label }}
+                                    </label>
+                                    
+                                    @if($field['type'] === 'file')
+                                        <input type="file" 
+                                               name="{{ $key }}" 
+                                               id="{{ $key }}" 
+                                               class="block w-full text-sm text-gray-500
+                                                      file:mr-4 file:py-2 file:px-4
+                                                      file:rounded-md file:border-0
+                                                      file:text-sm file:font-semibold
+                                                      file:bg-indigo-50 file:text-indigo-700
+                                                      hover:file:bg-indigo-100
+                                                      border border-gray-300 rounded-md cursor-pointer"
+                                               {{ $isRequired ? 'required' : '' }}>
+                                        <p class="text-xs text-gray-500 mt-1">Format: PDF/JPG/PNG (Max 2MB)</p>
+
+                                    @else
+                                        <input type="text" 
+                                               name="{{ $key }}" 
+                                               id="{{ $key }}" 
+                                               value="{{ old($key) }}"
+                                               class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full"
+                                               placeholder="Isi jawaban Anda..."
+                                               {{ $isRequired ? 'required' : '' }}>
+                                    @endif
+
+                                    @error($key)
+                                        <p class="text-sm text-red-600 mt-1">{{ $message }}</p>
+                                    @enderror
+                                </div>
                             @endforeach
-                        </select>
-                        <x-input-error :messages="$errors->get('type_id')" class="mt-2" />
-                    </div>
+                        </div>
+                    @else
+                        <div class="text-center py-8 text-gray-500 bg-gray-50 rounded-lg border border-dashed border-gray-300">
+                            <p>Admin belum mengatur formulir untuk jenis surat ini.</p>
+                            <p class="text-sm mt-1">Silakan hubungi admin atau pilih jenis surat lain.</p>
+                        </div>
+                    @endif
 
-                    <div class="mb-4">
-                        <x-input-label for="recipient" :value="__('Tujuan Surat (Kepada Yth.)')" />
-                        <x-text-input id="recipient" class="block mt-1 w-full" type="text" name="recipient" :value="old('recipient')" required placeholder="Contoh: Dekan Fakultas Teknik" />
-                        <x-input-error :messages="$errors->get('recipient')" class="mt-2" />
-                    </div>
-
-                    <div class="mb-4">
-                        <x-input-label for="subject" :value="__('Perihal / Judul')" />
-                        <x-text-input id="subject" class="block mt-1 w-full" type="text" name="subject" :value="old('subject')" required placeholder="Contoh: Permohonan Izin Penelitian" />
-                        <x-input-error :messages="$errors->get('subject')" class="mt-2" />
-                    </div>
-
-                    {{-- <div class="mb-4">
-                        <x-input-label for="content_data" :value="__('Keterangan / Isi Ringkas')" />
-                        <textarea id="content_data" name="content_data" rows="4" class="block mt-1 w-full border-gray-300 rounded-md shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50" required placeholder="Jelaskan detail keperluan surat di sini...">{{ old('content_data') }}</textarea>
-                        <x-input-error :messages="$errors->get('content_data')" class="mt-2" />
-                    </div> --}}
-
-                    <div class="flex items-center justify-end mt-6">
-                        <a href="{{ route('user.letters.index') }}" class="text-gray-600 hover:text-gray-900 mr-4 font-semibold">Batal</a>
-                        <x-primary-button class="ml-3">
-                            {{ __('Ajukan Surat') }}
-                        </x-primary-button>
+                    <div class="flex items-center justify-between mt-8 pt-6 border-t">
+                        <a href="{{ route('user.letters.create') }}" class="text-gray-600 hover:text-gray-900 font-semibold underline decoration-2 underline-offset-4 text-sm">
+                            &larr; Pilih Jenis Lain
+                        </a>
+                        
+                        @if(!empty($formConfig))
+                            <x-primary-button class="ml-3 px-6 py-2 text-base">
+                                {{ __('Kirim Pengajuan') }}
+                            </x-primary-button>
+                        @endif
                     </div>
                 </form>
 
             </div>
         </div>
     </div>
-</x-app-layout>
+</x-app-layout> 
