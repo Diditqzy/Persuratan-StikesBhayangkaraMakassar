@@ -4,7 +4,6 @@ namespace App\Filament\Resources;
 
 use Filament\Forms;
 use Filament\Tables;
-use Filament\Forms\Set;
 use Filament\Forms\Form;
 use App\Models\LetterType;
 use Filament\Tables\Table;
@@ -35,27 +34,28 @@ class LetterTypeResource extends Resource
                     ->label('Nama Jenis Surat')
                     ->required()
                     ->live(onBlur: true)
+                    ->disabled(fn ($record) => $record && $record->id === 1)
                     ->afterStateUpdated(fn ($set, $state) => $set('code', Str::slug($state))),
                 
                 TextInput::make('code')
                     ->label('Kode Surat')
-                    ->required(),
+                    ->required()
+                    ->disabled(fn ($record) => $record && $record->id === 1),
 
-                // --- FORM BUILDER SECTION ---
                 Section::make('Desain Formulir Pengajuan')
-                    ->description('Atur kolom inputan yang harus diisi mahasiswa. Klik "Tambah Inputan" untuk menambah pertanyaan.')
+                    ->description(fn ($record) => $record && $record->id === 1 
+                        ? 'Formulir surat ini bersifat statis (Hardcoded). Tidak dapat diubah.' 
+                        : 'Atur kolom inputan yang harus diisi mahasiswa.')
                     ->schema([
                         Repeater::make('form_config')
                             ->label('Daftar Inputan')
                             ->schema([
-                                // 1. Label Pertanyaan
                                 TextInput::make('label')
                                     ->label('Nama Input / Pertanyaan')
                                     ->placeholder('Contoh: Semester, No. HP, Upload KTP')
                                     ->required()
                                     ->columnSpan(2),
                                 
-                                // 2. Jenis Input
                                 Select::make('type')
                                     ->label('Jenis Input')
                                     ->options([
@@ -64,37 +64,57 @@ class LetterTypeResource extends Resource
                                     ])
                                     ->required(),
                                 
-                                // 3. Opsi Wajib Isi
                                 Toggle::make('required')
                                     ->label('Wajib Diisi?')
                                     ->default(true)
                                     ->inline(false),
                             ])
-                            ->columns(4) // Agar tampil rapi ke samping
+                            ->columns(4)
                             ->addActionLabel('Tambah Inputan Baru')
-                            ->reorderableWithButtons() // Bisa digeser urutannya
-                            ->collapsible() // Bisa dilipat biar ga penuh
-                            ->cloneable() // Bisa diduplikasi
-                            ->itemLabel(fn (array $state): ?string => $state['label'] ?? null), // Label header repeater ambil dari inputan label
+                            ->reorderableWithButtons()
+                            ->collapsible()
+                            ->cloneable()
+                            ->itemLabel(fn (array $state): ?string => $state['label'] ?? null)
+                            ->disabled(fn ($record) => $record && $record->id === 1)
+                            ->dehydrated(fn ($record) => !($record && $record->id === 1)), 
                     ]),
             ]);
     }
+
     public static function table(Table $table): Table
     {
         return $table
             ->columns([
-                TextColumn::make('name')->label('Nama')->sortable()->searchable(),
-                TextColumn::make('code')->label('Kode')->badge()->sortable(),
+                TextColumn::make('name')
+                    ->label('Nama')
+                    ->sortable()
+                    ->searchable(),
+                    
+                TextColumn::make('code')
+                    ->label('Kode')
+                    ->badge()
+                    ->sortable(),
             ])
+            ->recordUrl(
+                fn (LetterType $record): ?string => $record->id === 1 
+                    ? null 
+                    : Pages\EditLetterType::getUrl([$record->id]) 
+            )
             ->actions([
+                Tables\Actions\ViewAction::make()
+                    ->label('Lihat')
+                    ->color('info'),
+
                 Tables\Actions\EditAction::make()
-                    ->visible(fn () => Auth::user()->role === 'admin'),
+                    ->visible(fn ($record) => 
+                        Auth::user()->role === 'admin' && 
+                        $record->id !== 1
+                    ),
                 
-                // DELETE DIBATASI: ID 1 (Template Sistem) TIDAK BOLEH DIHAPUS
                 Tables\Actions\DeleteAction::make()
                     ->visible(fn ($record) => 
                         Auth::user()->role === 'admin' && 
-                        $record->id !== 1 
+                        $record->id !== 1
                     ),
             ]);
     }
