@@ -15,7 +15,7 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->constrained('users'); // Pemohon
             $table->foreignId('type_id')->constrained('letter_types');
-            $table->foreignId('signer_id')->constrained('signers');
+            $table->foreignId('signer_id')->nullable()->constrained('signers')->nullOnDelete();
             
             // Data Surat
             $table->string('letter_number')->nullable()->unique();
