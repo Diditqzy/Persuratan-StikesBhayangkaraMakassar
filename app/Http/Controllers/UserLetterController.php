@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\OutgoingLetter;
 use App\Models\LetterType;
-use App\Models\Signer;
+use App\Models\OutgoingLetter;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Str;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class UserLetterController extends Controller
 {
@@ -22,109 +21,235 @@ class UserLetterController extends Controller
         return view('user.letters.index', compact('letters'));
     }
 
-    // --- REVISI METHOD CREATE ---
     public function create(Request $request)
     {
-        if (! $request->has('type_id')) {
-            $types = LetterType::all();
-            return view('user.letters.select-type', compact('types'));
+    if ($request->has('type_id')) {
+        $typeId = $request->query('type_id');
+        
+        $type = LetterType::find($typeId);
+
+        if (!$type) {
+            return redirect()->route('user.letters.create')->with('error', 'Jenis surat tidak ditemukan.');
         }
 
-        $type = LetterType::findOrFail($request->type_id);
-        
-        $formConfig = $type->form_config ?? []; 
-
-        return view('user.letters.create', compact('type', 'formConfig'));
+        return view('user.letters.create', compact('type'));
     }
 
-    // --- REVISI METHOD STORE ---
+    $types = LetterType::all();
+    
+    return view('user.letters.select-type', compact('types'));
+    }
+
     public function store(Request $request)
     {
-        // 1. Validasi HANYA Type ID (Subject & Recipient dihapus)
-        $request->validate([
-            'type_id' => 'required|exists:letter_types,id',
-        ]);
-
         $type = LetterType::findOrFail($request->type_id);
-        $additionalData = [];
+        
+        // 1. RULE DASAR (Tanpa Subject/Recipient user)
+        $rules = [
+            'type_id' => 'required|exists:letter_types,id',
+        ];
 
-        // 2. Loop Form Builder (Tetap Sama)
-        if (!empty($type->form_config)) {
-            foreach ($type->form_config as $field) {
-                $key = Str::slug($field['label']);
-                $label = $field['label'];
-                $isRequired = $field['required'] ?? false;
-
-                if ($isRequired && !$request->has($key) && !$request->file($key)) {
-                    return back()->withInput()->withErrors(["$key" => "Kolom '$label' wajib diisi!"]);
-                }
-
-                if ($field['type'] === 'file' && $request->hasFile($key)) {
-                    $file = $request->file($key);
-                    $path = $file->store('lampiran-tambahan', 'public');
-                    $additionalData[$label] = [
-                        'type' => 'file',
-                        'path' => $path,
-                        'original_name' => $file->getClientOriginalName()
-                    ];
-                } else {
-                    $value = $request->input($key);
-                    if ($value) $additionalData[$label] = $value;
+        // A. Validasi Khusus SKAK (ID 1)
+        if ($type->id === 1) {
+            $rules = array_merge($rules, [
+                'nama' => 'required|string',
+                'nim' => 'required|string',
+                'prodi' => 'required|string',
+                'semester' => 'required|numeric',
+                'tingkat' => 'required|string',
+                'tempat_lahir' => 'required|string',
+                'tanggal_lahir' => 'required|date',
+                'alamat' => 'required|string',
+                'lampiran' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120', 
+            ]);
+        } 
+        // B. Validasi Dinamis (Custom Form)
+        else {
+            if (!empty($type->form_config)) {
+                foreach ($type->form_config as $field) {
+                    if (isset($field['required']) && $field['required']) {
+                        $key = Str::slug($field['label']);
+                        $ruleType = $field['type'] === 'file' ? 'file|mimes:pdf,jpg,png|max:5120' : 'required';
+                        $rules[$key] = $ruleType;
+                    }
                 }
             }
         }
 
-        // 3. Simpan ke Database
-        $defaultSignerId = Signer::where('is_active', true)->first()->id ?? 1;
+        $validated = $request->validate($rules);
 
-        OutgoingLetter::create([
+        // 2. PROSES DATA
+        $additionalData = [];
+        $attachments = []; 
+
+        // A. Proses SKAK
+        if ($type->id === 1) {
+            $additionalData = [
+                'nama' => $request->nama,
+                'nim' => $request->nim,
+                'prodi' => $request->prodi,
+                'semester' => $request->semester,
+                'tingkat' => $request->tingkat,
+                'tempat_lahir' => $request->tempat_lahir,
+                'tanggal_lahir' => $request->tanggal_lahir,
+                'alamat' => $request->alamat,
+            ];
+
+            // Proses File Lampiran General
+            if ($request->hasFile('lampiran')) {
+                $path = $request->file('lampiran')->store('lampiran-surat-keluar', 'public');
+                $attachments[] = [
+                    'filename' => 'Lampiran Pendukung',
+                    'file_path' => $path,
+                ];
+            }
+        } 
+        // B. Proses Dinamis
+        else {
+            if (!empty($type->form_config)) {
+                foreach ($type->form_config as $field) {
+                    $key = Str::slug($field['label']);
+                    
+                    if ($field['type'] === 'file') {
+                        if ($request->hasFile($key)) {
+                            $path = $request->file($key)->store('lampiran-surat-keluar', 'public');
+                            $attachments[] = [
+                                'filename' => $field['label'],
+                                'file_path' => $path,
+                            ];
+                        }
+                    } else {
+                        $additionalData[$key] = $request->input($key);
+                    }
+                }
+            }
+        }
+
+        // 3. SIMPAN KE DATABASE
+        $letter = OutgoingLetter::create([
             'user_id' => Auth::id(),
-            'type_id' => $request->type_id,
-            'signer_id' => $defaultSignerId,
-            'letter_date' => now(),
-            
-            // ISI OTOMATIS (Karena input user dihapus)
-            'recipient' => 'Bagian Administrasi', // Default
-            'subject' => 'Pengajuan ' . $type->name, // Otomatis ambil nama jenis surat
-            
+            'type_id' => $type->id,
             'status' => 'submitted',
+            'letter_date' => now(),
+            'subject' => $type->name, 
+            'recipient' => 'Bagian Akademik / Administrasi', 
             'additional_data' => $additionalData,
         ]);
 
-        return redirect()->route('user.letters.index')
-            ->with('success', 'Surat berhasil diajukan! Menunggu verifikasi admin.');
-    }
-
-    public function edit(OutgoingLetter $letter)
-    {
-        if ($letter->user_id !== Auth::id()) abort(403);
-        if (!in_array($letter->status, ['submitted', 'rejected'])) {
-            return redirect()->route('user.letters.index')->with('error', 'Surat tidak bisa diedit.');
+        if (!empty($attachments)) {
+            $letter->attachments()->createMany($attachments);
         }
 
-        $type = $letter->type;
-        $formConfig = $type->form_config ?? [];
+        return redirect()->route('user.letters.index')
+            ->with('success', 'Pengajuan berhasil dikirim.');
+    }
 
-        return view('user.letters.edit', compact('letter', 'type', 'formConfig'));
+    public function edit(OutgoingLetter $letter) 
+    {
+        // 1. SECURITY CHECK: Pastikan user hanya bisa edit surat miliknya sendiri
+        if ($letter->user_id !== Auth::id()) {
+            abort(403, 'Unauthorized action.');
+        }
+
+        // 2. Ambil konfigurasi form dari Jenis Surat (LetterType)
+        // Asumsi: di table letter_types ada kolom 'form_config' (JSON)
+        $formConfig = $letter->type->form_config; 
+
+        // 3. Kirim ke View
+        return view('user.letters.edit', compact('letter', 'formConfig'));
     }
 
     public function update(Request $request, OutgoingLetter $letter)
     {
-        $letter->update([
-            'recipient' => $request->recipient,
-            'subject' => $request->subject,
-            'status' => 'submitted', 
-        ]);
-        return redirect()->route('user.letters.index')->with('success', 'Surat diperbarui.');
-    }
-
-    public function destroy(OutgoingLetter $letter)
-    {
-        if ($letter->user_id !== Auth::id()) abort(403);
-        if (!in_array($letter->status, ['submitted', 'rejected'])) {
-            return back()->with('error', 'Gagal hapus.');
+        // 1. SECURITY CHECK
+        if ($letter->user_id !== Auth::id()) {
+            abort(403);
         }
-        $letter->delete();
-        return back()->with('success', 'Dihapus.');
+
+        $currentAdditionalData = $letter->additional_data ?? [];
+
+        // ==========================================
+        // SKENARIO 1: UPDATE SKAK (ID 1)
+        // ==========================================
+        if ($letter->type_id == 1) {
+            $request->validate([
+                'nim' => 'required|string',
+                'prodi' => 'required|string',
+                'semester' => 'required|numeric',
+                'tingkat' => 'required|string',
+                'tempat_lahir' => 'required|string',
+                'tanggal_lahir' => 'required|date',
+                'alamat' => 'required|string',
+                'lampiran' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120', // Nullable saat update
+            ]);
+
+            // Merge data baru ke data lama
+            $currentAdditionalData['nama'] = Auth::user()->name; // Pastikan nama tetap konsisten
+            $currentAdditionalData['nim'] = $request->nim;
+            $currentAdditionalData['prodi'] = $request->prodi;
+            $currentAdditionalData['semester'] = $request->semester;
+            $currentAdditionalData['tingkat'] = $request->tingkat;
+            $currentAdditionalData['tempat_lahir'] = $request->tempat_lahir;
+            $currentAdditionalData['tanggal_lahir'] = $request->tanggal_lahir;
+            $currentAdditionalData['alamat'] = $request->alamat;
+
+            // Cek file lampiran (Update jika ada yang baru)
+            if ($request->hasFile('lampiran')) {
+                // Hapus lampiran lama jika ada
+                $oldAttachment = $letter->attachments()->where('filename', 'Lampiran Pendukung')->first();
+                if ($oldAttachment) {
+                    Storage::disk('public')->delete($oldAttachment->file_path);
+                    $oldAttachment->delete();
+                }
+
+                // Simpan yang baru
+                $path = $request->file('lampiran')->store('lampiran-surat-keluar', 'public');
+                $letter->attachments()->create([
+                    'filename' => 'Lampiran Pendukung',
+                    'file_path' => $path
+                ]);
+            }
+        } 
+        
+        // ==========================================
+        // SKENARIO 2: UPDATE DINAMIS
+        // ==========================================
+        else {
+            $config = $letter->type->form_config;
+            if($config) {
+                foreach ($config as $field) {
+                    $key = Str::slug($field['label']);
+
+                    if ($field['type'] === 'file') {
+                        if ($request->hasFile($key)) {
+                            // Cari attachment lama berdasarkan label
+                            $oldAtt = $letter->attachments()->where('filename', $field['label'])->first();
+                            if ($oldAtt) {
+                                Storage::disk('public')->delete($oldAtt->file_path);
+                                $oldAtt->delete();
+                            }
+                            
+                            $path = $request->file($key)->store('letter_documents', 'public');
+                            $letter->attachments()->create([
+                                'filename' => $field['label'],
+                                'file_path' => $path
+                            ]);
+                        }
+                    } else {
+                        $currentAdditionalData[$key] = $request->input($key);
+                    }
+                }
+            }
+        }
+
+        // 3. SIMPAN PERUBAHAN
+        $letter->update([
+            'additional_data' => $currentAdditionalData, // Simpan ke additional_data (bukan 'data')
+            'status' => 'pending',  // Reset status
+            'rejection_note' => null 
+        ]);
+
+        return redirect()->route('user.letters.index')
+            ->with('success', 'Surat berhasil diperbarui dan diajukan ulang!');
     }
 }

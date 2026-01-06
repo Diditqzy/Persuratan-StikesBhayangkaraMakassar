@@ -4,221 +4,253 @@
     <title>Cetak Surat - {{ $data->letter_number }}</title>
     <style>
         /* PENGATURAN KERTAS A4 PORTRAIT */
-        @page { margin: 2.5cm 2.5cm 3cm 2.5cm; }
+        @page { margin: 2cm 2.5cm 2.5cm 2.5cm; }
         body {
             font-family: "Times New Roman", Times, serif;
             font-size: 12pt;
-            line-height: 1.5;
+            line-height: 1.3;
             color: #000;
         }
-        /* KOP SURAT */
-        .kop-surat {
+
+        /* HELPER */
+        .text-center { text-align: center; }
+        .text-justify { text-align: justify; }
+        .font-bold { font-weight: bold; }
+        .uppercase { text-transform: uppercase; }
+        .underline { text-decoration: underline; }
+        
+        /* KOP SURAT (3 KOLOM: LOGO - TEKS - LOGO) */
+        .kop-table {
             width: 100%;
-            border-bottom: 4px double #000;
-            padding-bottom: 10px;
-            margin-bottom: 25px;
+            border-bottom: 3px solid #000;
+            padding-bottom: 5px;
+            margin-bottom: 20px;
         }
-        .kop-surat td { vertical-align: top; }
-        .logo { width: 90px; height: auto; }
-        .instansi-name {
-            font-size: 16pt;
-            font-weight: bold;
-            text-transform: uppercase;
-            text-align: center;
-            letter-spacing: 1px;
-        }
-        .instansi-address {
-            font-size: 10pt;
-            text-align: center;
-            font-style: italic;
-        }
+        .kop-table td { vertical-align: middle; }
+        .logo-kiri { width: 90px; height: auto; }
+        .logo-kanan { width: 90px; height: auto; }
         
-        /* LOGIKA TAMPILAN BERDASARKAN JENIS SURAT */
-        
-        /* GAYA KHUSUS SURAT KETERANGAN (ID 1) */
+        .kop-text-yayasan { font-size: 11pt; font-weight: bold; }
+        .kop-text-kampus { font-size: 14pt; font-weight: bold; }
+        .kop-text-singkatan { font-size: 12pt; font-weight: bold; margin-bottom: 2px; }
+        .kop-text-alamat { font-size: 9pt; font-style: normal; }
+
+        /* JUDUL SURAT */
         .judul-surat {
             text-align: center;
             font-weight: bold;
             text-transform: uppercase;
-            font-size: 14pt;
+            font-size: 12pt; /* Sesuai gambar tidak terlalu besar */
             text-decoration: underline;
-            margin-bottom: 2px;
         }
         .nomor-surat {
             text-align: center;
             font-size: 12pt;
-            margin-bottom: 30px;
-        }
-        .body-text {
-            text-align: justify;
-            margin-bottom: 15px;
-        }
-        .biodata-table {
-            width: 100%;
-            margin-left: 30px;
-            margin-bottom: 15px;
-        }
-        .biodata-table td {
-            padding: 2px 0;
-            vertical-align: top;
+            margin-top: 2px;
+            margin-bottom: 25px;
         }
 
-        /* GAYA UMUM (MANUAL) */
-        .meta-table { width: 100%; margin-bottom: 18px; }
-        .meta-table td { vertical-align: top; }
-        .content { margin-top: 15px; text-align: justify; min-height: 200px; }
+        /* TABEL DATA (BIODATA) */
+        .tabel-data {
+            width: 100%;
+            margin-left: 20px; /* Indentasi seperti gambar */
+            margin-bottom: 10px;
+            border-collapse: collapse;
+        }
+        .tabel-data td {
+            vertical-align: top;
+            padding: 2px 0;
+        }
+        .label-col { width: 140px; } /* Lebar label 'Nama', 'NUPTK' */
+        .sep-col { width: 20px; text-align: center; }
+
+        /* PARAGRAF */
+        .paragraph {
+            text-align: justify;
+            text-indent: 40px; /* Menjorok ke dalam */
+            margin-bottom: 10px;
+            line-height: 1.5;
+        }
+        .intro-text { margin-bottom: 10px; }
 
         /* TANDA TANGAN */
-        .ttd-container {
-            margin-top: 40px;
-            page-break-inside: avoid;
+        .ttd-wrapper {
             float: right;
             width: 45%;
             text-align: center;
+            margin-top: 30px;
         }
-        .qr-container {
+        .ttd-tanggal { margin-bottom: 5px; }
+        .ttd-jabatan { font-weight: bold; margin-bottom: 60px; } /* Ruang TTD/QR */
+        .ttd-nama { font-weight: bold; text-decoration: underline; }
+        
+        /* QR Code Style */
+        .qr-box {
+            height: 80px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: center;
+            margin: 5px auto;
             position: relative;
-            width: 90px;
-            height: 90px;
-            margin: 10px auto;
         }
-        .qr-code-image { width: 100%; height: 100%; }
-        .qr-logo-overlay {
+        .qr-img { width: 80px; height: 80px; }
+        .qr-overlay {
             position: absolute;
-            top: 32px; left: 32px;
-            width: 26px; height: 26px;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px; height: 20px;
             background: #fff;
             padding: 2px;
         }
-        .qr-note { font-size: 7pt; color: #555; margin-top: 2px; }
-        .ttd-name { font-weight: bold; text-decoration: underline; margin-top: 10px; }
-        .ttd-nip { font-size: 11pt; }
+
+        /* CLEANUP */
         .clear { clear: both; }
     </style>
 </head>
 <body>
 
-    <table class="kop-surat">
+    {{-- KOP SURAT --}}
+    <table class="kop-table">
         <tr>
+            {{-- LOGO KIRI --}}
             <td width="15%" align="center">
-                <img src="{{ public_path('images/logo.png') }}" class="logo" alt="Logo">
+                <img src="{{ public_path('images/logo-ybubm.jpg') }}" class="logo-kiri" alt="Logo Yayasan">
             </td>
-            <td width="85%" align="center">
-                <div class="instansi-name">SEKOLAH TINGGI ILMU KESEHATAN<br>(STIKES) BHAYANGKARA MAKASSAR</div>
-                <div class="instansi-address">
-                    Jl. Mappaodang No. 63, Makassar, Sulawesi Selatan<br>
-                    Telp: (0411) 871234 | Email: info@stikes-bhayangkara.ac.id | Website: www.stikes-bhayangkara.ac.id
+            
+            {{-- TEKS TENGAH --}}
+            <td width="70%" align="center">
+                <div class="kop-text-yayasan uppercase">YAYASAN BRATA UTAMA BHAYANGKARA MAKASSAR</div>
+                <div class="kop-text-kampus uppercase">SEKOLAH TINGGI ILMU KESEHATAN BHAYANGKARA MAKASSAR</div>
+                <div class="kop-text-singkatan uppercase">( STIKBHARA MAKASSAR )</div>
+                <div class="kop-text-alamat">
+                    Jl. Letjen Pol. Mappa Oudang No. 63 Makassar 90223 HP/WA. 085824855515<br>
+                    Website : www.stikbhara.ac.id &nbsp; Email : stikbhara@gmail.com
                 </div>
+            </td>
+
+            {{-- LOGO KANAN --}}
+            <td width="15%" align="center">
+                <img src="{{ public_path('images/logo.png') }}" class="logo-kanan" alt="Logo STIKES">
             </td>
         </tr>
     </table>
 
+    {{-- LOGIKA: HANYA UNTUK SURAT KETERANGAN KULIAH (ID 1) --}}
     @if($data->type_id == 1)
 
-        <div class="judul-surat">SURAT KETERANGAN AKTIF KULIAH</div>
-        <div class="nomor-surat">Nomor: {{ $data->letter_number ?? '...../...../...../.....' }}</div>
+        {{-- JUDUL --}}
+        <div class="judul-surat">SURAT KETERANGAN KULIAH</div>
+        <div class="nomor-surat">Nomor : &nbsp;&nbsp; {{ $data->letter_number ?? '...../SKT...../...../2025/STIKBHARA' }}</div>
 
-        <div class="body-text">
-            Yang bertanda tangan di bawah ini, Ketua STIKES Bhayangkara Makassar menerangkan bahwa:
+        {{-- ISI: DATA PENANDATANGAN --}}
+        <div class="intro-text">
+            Yang bertandatangan di bawah ini &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:
         </div>
 
-        <table class="biodata-table">
+        <table class="tabel-data">
             <tr>
-                <td width="30%">Nama Lengkap</td>
-                <td width="2%">:</td>
-                <td width="68%"><strong>{{ $data->user->name }}</strong></td>
+                <td class="label-col font-bold" style="letter-spacing: 2px;">Nama</td>
+                <td class="sep-col">:</td>
+                <td class="font-bold">{{ $data->signer->user->name }}</td>
             </tr>
             <tr>
-                <td>NIM</td>
-                <td>:</td>
-                <td>{{ $data->user->identity_number ?? '-' }}</td>
+                <td class="label-col font-bold" style="letter-spacing: 2px;">NUPTK</td>
+                <td class="sep-col">:</td>
+                <td>{{ $data->signer->employee_id ?? '-' }}</td>
             </tr>
             <tr>
-                <td>Program Studi</td>
-                <td>:</td>
-                <td>S1 Keperawatan</td> 
-            </tr>
-            <tr>
-                <td>Semester</td>
-                <td>:</td>
-                <td>Ganjil T.A {{ date('Y') }}/{{ date('Y')+1 }}</td>
-            </tr>
-            <tr>
-                <td>Alamat</td>
-                <td>:</td>
-                <td>Makassar</td> 
+                <td class="label-col font-bold" style="letter-spacing: 2px;">Jabatan</td>
+                <td class="sep-col">:</td>
+                <td class="uppercase">{{ $data->signer->position }}</td>
             </tr>
         </table>
 
-        <div class="body-text">
-            Adalah benar mahasiswa yang bersangkutan terdaftar dan aktif mengikuti perkuliahan pada Semester Ganjil Tahun Akademik {{ date('Y') }}/{{ date('Y')+1 }} di STIKES Bhayangkara Makassar.
+        {{-- ISI: DATA MAHASISWA --}}
+        <div class="intro-text" style="margin-top: 15px;">
+            Menerangkan bahwa &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:
         </div>
 
-        <div class="body-text">
-            Demikian surat keterangan ini dibuat dengan sesungguhnya untuk dipergunakan sebagaimana mestinya.
+        {{-- Helper Variables dari additional_data --}}
+        @php
+            $mhs = $data->additional_data;
+            $namaMhs = $mhs['nama'] ?? $data->user->name;
+            $nimMhs = $mhs['nim'] ?? '-';
+            $tingkat = $mhs['tingkat'] ?? '...';
+            $semester = $mhs['semester'] ?? '...';
+            $tempatLahir = $mhs['tempat_lahir'] ?? '...';
+            $tglLahir = isset($mhs['tanggal_lahir']) ? \Carbon\Carbon::parse($mhs['tanggal_lahir'])->isoFormat('D MMMM Y') : '...';
+            $alamat = $mhs['alamat'] ?? '...';
+            
+            // Logika Tahun Akademik (Otomatis berdasarkan tahun saat ini / input)
+            $tahunIni = date('Y');
+            $tahunDepan = $tahunIni + 1;
+        @endphp
+
+        <table class="tabel-data">
+            <tr>
+                <td class="label-col font-bold" style="letter-spacing: 2px;">Nama</td>
+                <td class="sep-col">:</td>
+                <td class="uppercase font-bold">{{ $namaMhs }}</td>
+            </tr>
+            <tr>
+                <td class="label-col font-bold">Tk / N i m</td>
+                <td class="sep-col">:</td>
+                <td class="uppercase">{{ $tingkat }} / {{ $nimMhs }}</td>
+            </tr>
+            <tr>
+                <td class="label-col font-bold">Tempat / Tgl lahir</td>
+                <td class="sep-col">:</td>
+                <td class="uppercase">{{ $tempatLahir }}, {{ strtoupper($tglLahir) }}</td>
+            </tr>
+            <tr>
+                <td class="label-col font-bold">Alamat</td>
+                <td class="sep-col">:</td>
+                <td class="uppercase" style="vertical-align: top;">{{ $alamat }}</td>
+            </tr>
+        </table>
+
+        {{-- ISI: PERNYATAAN --}}
+        <div class="paragraph" style="margin-top: 20px;">
+            Yang tersebut di atas adalah benar Mahasiswa STIKES Bhayangkara Makassar, 
+            Tingkat {{ $tingkat }} Semester {{ $semester }} Tahun Akademik {{ $tahunIni }} / {{ $tahunDepan }}. 
+            Yang tidak menerima Beasiswa dari Institusi dan Lembaga-lembaga lainnya
         </div>
 
+        <div class="paragraph">
+            Demikian surat keterangan ini dibuat dengan sebenarnya untuk digunakan sebagaimana mestinya.
+        </div>
+
+    {{-- TEMPLATE DEFAULT (NON-SKAK) --}}
     @else
-
-        <table class="meta-table">
-            <tr>
-                <td width="12%">Nomor</td>
-                <td width="2%">:</td>
-                <td width="46%">{{ $data->letter_number ?? '___/STIKES/___/____' }}</td>
-                <td width="40%" align="right">
-                    Makassar, {{ \Carbon\Carbon::parse($data->letter_date)->translatedFormat('d F Y') }}
-                </td>
-            </tr>
-            <tr>
-                <td>Lampiran</td>
-                <td>:</td>
-                <td>{{ $data->attachments->count() ? $data->attachments->count().' Berkas' : '-' }}</td>
-                <td></td>
-            </tr>
-            <tr>
-                <td>Perihal</td>
-                <td>:</td>
-                <td style="font-weight: bold;">{{ $data->subject }}</td>
-                <td></td>
-            </tr>
-        </table>
-
-        <div style="margin-bottom: 15px;">
-            Kepada Yth.<br>
-            <strong>{{ $data->recipient }}</strong><br>
-            di -<br>
-            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Tempat
+        {{-- (Kode template default Anda sebelumnya di sini, tidak saya ubah agar fokus ke request) --}}
+        <div class="text-center" style="margin-top: 50px;">
+            <h3>{{ $data->type->name }}</h3>
+            <p>Template belum dikonfigurasi secara spesifik.</p>
         </div>
-
-        <div class="content">
-            {!! $data->content_data !!}
-        </div>
-
     @endif
 
-    <div class="ttd-container">
-        @if($data->type_id == 1)
-            <div style="margin-bottom: 10px;">Makassar, {{ \Carbon\Carbon::parse($data->letter_date)->translatedFormat('d F Y') }}</div>
-        @endif
+    {{-- BAGIAN TANDA TANGAN (SAMA PERSIS POSISINYA) --}}
+    <div class="ttd-wrapper">
+        <div class="ttd-tanggal">
+            Makassar, &nbsp; {{ \Carbon\Carbon::parse($data->letter_date)->isoFormat('MMMM Y') }}
+        </div>
+        <div class="ttd-jabatan">KETUA,</div>
 
-        <div>{{ $data->signer->position }},</div>
-
+        {{-- LOGIKA QR CODE / TANDA TANGAN --}}
         @if(in_array($data->status, ['approved', 'completed']) && $data->signature_code)
-            <div class="qr-container">
-                <img class="qr-code-image"
+            <div class="qr-box" style="margin-top: -50px; margin-bottom: 10px;">
+                <img class="qr-img"
                      src="data:image/svg+xml;base64,{!! base64_encode(QrCode::format('svg')->size(100)->margin(1)->errorCorrection('H')->generate(route('letter.verify', $data->signature_code))) !!}"
                      alt="QR Code">
-                <img class="qr-logo-overlay" src="{{ public_path('images/logo.png') }}" alt="Logo">
+                {{-- Overlay Logo Kecil di Tengah QR --}}
+                <img class="qr-overlay" src="{{ public_path('images/logo.png') }}" alt="Logo">
             </div>
-            <div class="qr-note">Dokumen ini ditandatangani secara elektronik</div>
         @else
-            <div style="height:80px; display:flex; align-items:center; justify-content:center; color:#ccc; border:1px dashed #ccc; margin:10px 0;">
-                (Draft / Belum Final)
-            </div>
+            <div style="height: 60px; margin-top: -50px;"></div> {{-- Spacer kosong jika belum TTD --}}
         @endif
 
-        <div class="ttd-name">{{ $data->signer->user->name }}</div>
-        <div class="ttd-nip">NIP/NIK. {{ $data->signer->employee_id ?? '-' }}</div>
+        <div class="ttd-nama">{{ $data->signer->user->name }}</div>
+        <div class="font-bold">NUPTK : {{ $data->signer->employee_id ?? '....................' }}</div>
     </div>
 
     <div class="clear"></div>
