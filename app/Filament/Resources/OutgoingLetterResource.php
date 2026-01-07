@@ -53,50 +53,81 @@ class OutgoingLetterResource extends Resource
                 ])
                 ->visible(fn ($record) => in_array($record?->status, ['revision_needed', 'rejected'])),
 
-            // --- INFO DASAR ---
+            // --- INFORMASI DASAR ---
             Forms\Components\Section::make('Informasi Dasar')
                 ->schema([
                     Forms\Components\Select::make('type_id')
                         ->relationship('type', 'name')
                         ->label('Jenis Surat')
-                        ->searchable()->preload()->required()->live()
+                        ->searchable()
+                        ->preload()
+                        ->required()
+                        ->live()
                         ->afterStateUpdated(fn (Forms\Set $set) => $set('additional_data', [])),
 
-                    Forms\Components\TextInput::make('subject')->label('Perihal')->required()->columnSpan(2),
-                    Forms\Components\TextInput::make('recipient')->label('Tujuan')->required(),
-                    Forms\Components\DatePicker::make('letter_date')->label('Tanggal')->required()->default(now()),
+                    Forms\Components\TextInput::make('subject')
+                        ->label('Perihal')
+                        ->required()
+                        ->maxLength(255)
+                        ->columnSpan(2),
+
+                    Forms\Components\TextInput::make('recipient')
+                        ->label('Tujuan')
+                        ->required()
+                        ->maxLength(255),
+
+                    Forms\Components\DatePicker::make('letter_date')
+                        ->label('Tanggal')
+                        ->required()
+                        ->default(now()),
                 ])->columns(2),
 
             // --- DATA MAHASISWA (SKAK) ---
             Forms\Components\Section::make('Data Mahasiswa')
                 ->description('Data untuk generate otomatis.')
                 ->schema([
-                    Forms\Components\TextInput::make('additional_data.nama')->label('Nama')->required(),
-                    Forms\Components\TextInput::make('additional_data.nim')->label('NIM')->required(),
+                    Forms\Components\TextInput::make('additional_data.nama')
+                        ->label('Nama')
+                        ->required(),
+                    
+                    Forms\Components\TextInput::make('additional_data.nim')
+                        ->label('NIM')
+                        ->required(),
+                    
                     Forms\Components\Grid::make(3)->schema([
                         Forms\Components\TextInput::make('additional_data.prodi')->label('Prodi')->required(),
                         Forms\Components\TextInput::make('additional_data.semester')->label('Semester')->numeric()->required(),
                         Forms\Components\TextInput::make('additional_data.tingkat')->label('Tingkat')->required(),
                     ]),
+                    
                     Forms\Components\Grid::make(2)->schema([
                         Forms\Components\TextInput::make('additional_data.tempat_lahir')->label('Tempat Lahir')->required(),
                         Forms\Components\DatePicker::make('additional_data.tanggal_lahir')->label('Tgl Lahir')->required(),
                     ]),
-                    Forms\Components\Textarea::make('additional_data.alamat')->label('Alamat')->rows(2)->required()->columnSpanFull(),
+                    
+                    Forms\Components\Textarea::make('additional_data.alamat')
+                        ->label('Alamat')
+                        ->rows(2)
+                        ->required()
+                        ->columnSpanFull(),
                 ])
                 ->visible(fn (Get $get) => $get('type_id') == 1)
                 ->columns(2),
 
-            // --- FILE SURAT (ADMIN) ---
+            // --- FILE SURAT FINAL (ADMIN) ---
             Forms\Components\Section::make('File Surat Final (Admin)')
                 ->description('Upload file surat yang telah diketik/dibuat oleh Admin.')
                 ->schema([
                     FileUpload::make('final_file_path')
                         ->label('Upload Dokumen Surat (Word/PDF)')
-                        ->disk('public')->directory('surat-keluar')
+                        ->disk('public')
+                        ->directory('surat-keluar')
                         ->acceptedFileTypes(['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
-                        ->maxSize(10240)->downloadable()->openable()
-                        // VALIDASI: Wajib jika bukan SKAK (ID 1) & Status Proses
+                        ->maxSize(10240)
+                        ->downloadable()
+                        ->openable()
+                        
+                        // VALIDASI KONDISIONAL
                         ->required(fn (Get $get) => 
                             $get('type_id') != 1 && 
                             in_array($get('status'), ['pending_approval', 'approved', 'completed'])
@@ -108,7 +139,7 @@ class OutgoingLetterResource extends Resource
                 ])
                 ->visible(fn (Get $get) => $get('type_id') != 1),
 
-            // --- LAMPIRAN ---
+            // --- LAMPIRAN PENDUKUNG ---
             Forms\Components\Section::make('Lampiran Pendukung')
                 ->schema([
                     Forms\Components\Placeholder::make('info')
@@ -120,22 +151,37 @@ class OutgoingLetterResource extends Resource
                         ->relationship()
                         ->label('File Lampiran')
                         ->schema([
-                            Forms\Components\TextInput::make('filename')->label('Nama File')->required(),
-                            FileUpload::make('file_path')->label('File')->disk('public')->directory('lampiran-surat-keluar')->required(),
+                            Forms\Components\TextInput::make('filename')
+                                ->label('Nama File')
+                                ->required(),
+                            
+                            FileUpload::make('file_path')
+                                ->label('File')
+                                ->disk('public')
+                                ->directory('lampiran-surat-keluar')
+                                ->required(),
                         ])->columns(2),
                 ]),
 
-            // --- STATUS (ADMIN) ---
+            // --- VALIDASI STATUS (ADMIN) ---
             Forms\Components\Section::make('Validasi Admin')
                 ->schema([
                     Forms\Components\Select::make('status')
                         ->options([
-                            'submitted' => 'Pengajuan Baru', 'draft' => 'Draft',
-                            'pending_approval' => 'Menunggu TTD', 'approved' => 'Disetujui',
-                            'rejected' => 'Ditolak', 'completed' => 'Selesai',
+                            'submitted' => 'Pengajuan Baru',
+                            'draft' => 'Draft',
+                            'pending_approval' => 'Menunggu TTD',
+                            'approved' => 'Disetujui',
+                            'rejected' => 'Ditolak',
+                            'completed' => 'Selesai',
                         ])
-                        ->default('submitted')->disabled()->dehydrated(),
-                    Forms\Components\TextInput::make('letter_number')->label('Nomor Surat')->disabled(),
+                        ->default('submitted')
+                        ->disabled()
+                        ->dehydrated(),
+                        
+                    Forms\Components\TextInput::make('letter_number')
+                        ->label('Nomor Surat')
+                        ->disabled(),
                 ])
                 ->visible(fn () => Auth::user()->role === 'admin'),
         ]);
@@ -145,19 +191,39 @@ class OutgoingLetterResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('created_at')->label('Tgl')->date('d M Y')->sortable(),
-                Tables\Columns\TextColumn::make('type.name')->label('Jenis')->sortable(),
-                Tables\Columns\TextColumn::make('user.name')->label('Pemohon')->searchable(),
-                Tables\Columns\TextColumn::make('subject')->label('Perihal')->limit(30),
-                Tables\Columns\TextColumn::make('status')->badge()
+                Tables\Columns\TextColumn::make('created_at')
+                    ->label('Tgl')
+                    ->date('d M Y')
+                    ->sortable(),
+                
+                Tables\Columns\TextColumn::make('type.name')
+                    ->label('Jenis')
+                    ->sortable(),
+                
+                Tables\Columns\TextColumn::make('user.name')
+                    ->label('Pemohon')
+                    ->searchable(),
+                
+                Tables\Columns\TextColumn::make('subject')
+                    ->label('Perihal')
+                    ->limit(30),
+                
+                Tables\Columns\TextColumn::make('status')
+                    ->badge()
                     ->color(fn (string $state): string => match ($state) {
-                        'submitted' => 'info', 'draft' => 'gray', 'pending_approval' => 'warning',
-                        'approved' => 'success', 'rejected', 'revision_needed' => 'danger',
-                        'completed' => 'primary', default => 'gray',
+                        'submitted' => 'info',
+                        'draft' => 'gray',
+                        'pending_approval' => 'warning',
+                        'approved' => 'success',
+                        'rejected', 'revision_needed' => 'danger',
+                        'completed' => 'primary',
+                        default => 'gray',
                     })
                     ->formatStateUsing(fn (string $state) => match ($state) {
-                        'submitted' => 'Baru', 'pending_approval' => 'Menunggu TTD',
-                        'revision_needed' => 'Revisi', default => ucfirst($state),
+                        'submitted' => 'Baru',
+                        'pending_approval' => 'Menunggu TTD',
+                        'revision_needed' => 'Revisi',
+                        default => ucfirst($state),
                     }),
             ])
             ->defaultSort('created_at', 'desc')
@@ -167,10 +233,11 @@ class OutgoingLetterResource extends Resource
                     ->modalWidth('4xl')
                     ->extraModalFooterActions([
                         
-                        // 1. APPROVE (PIMPINAN)
+                        // --- ACTION PIMPINAN: APPROVE ---
                         Tables\Actions\Action::make('approve_modal')
                             ->label('Setujui & TTD')
-                            ->color('success')->icon('heroicon-o-check-badge')
+                            ->color('success')
+                            ->icon('heroicon-o-check-badge')
                             ->requiresConfirmation()
                             ->visible(fn (OutgoingLetter $record) => 
                                 Auth::user()->role === 'pimpinan' && 
@@ -178,22 +245,29 @@ class OutgoingLetterResource extends Resource
                             )
                             ->action(function (OutgoingLetter $record) {
                                 $pimpinan = Signer::whereHas('user', fn ($q) => $q->where('role', 'pimpinan'))->first();
+
                                 if (!$pimpinan) {
                                     Notification::make()->title('Data Signer Pimpinan tidak ditemukan!')->danger()->send();
                                     return;
                                 }
+
                                 $record->update([
-                                    'status' => 'approved', 'signer_id' => $pimpinan->id,
-                                    'approved_at' => now(), 'approved_by' => Auth::id()
+                                    'status' => 'approved',
+                                    'signer_id' => $pimpinan->id,
+                                    'approved_at' => now(),
+                                    'approved_by' => Auth::id(),
                                 ]);
+
                                 Notification::make()->title('Surat Disetujui')->success()->send();
                             }),
 
-                        // 2. REVISI (PIMPINAN)
+                        // --- ACTION PIMPINAN: REVISI ---
                         Tables\Actions\Action::make('request_revision')
                             ->label('Revisi')
                             ->color('warning')
-                            ->form([Textarea::make('note')->required()->label('Catatan')])
+                            ->form([
+                                Textarea::make('note')->required()->label('Catatan')
+                            ])
                             ->visible(fn (OutgoingLetter $record) => 
                                 Auth::user()->role === 'pimpinan' && 
                                 !in_array($record->status, ['approved', 'rejected', 'revision_needed'])
@@ -201,28 +275,48 @@ class OutgoingLetterResource extends Resource
                             ->action(function (OutgoingLetter $record, array $data) {
                                 OutgoingDisposition::create([
                                     'outgoing_letter_id' => $record->id,
-                                    'user_id' => Auth::id(), 'instruction' => $data['note'],
+                                    'user_id' => Auth::id(),
+                                    'instruction' => $data['note'],
                                 ]);
-                                $record->update(['status' => 'revision_needed', 'rejection_note' => $data['note']]);
+
+                                $record->update([
+                                    'status' => 'revision_needed', 
+                                    'rejection_note' => $data['note']
+                                ]);
+                                
                                 Notification::make()->title('Dikembalikan untuk revisi')->warning()->send();
                             }),
 
-                        // 3. REJECT (PIMPINAN)
+                        // --- ACTION PIMPINAN: REJECT ---
                         Tables\Actions\Action::make('reject_modal')
                             ->label('Tolak')
                             ->color('danger')
-                            ->form([Textarea::make('note')->required()->label('Alasan')])
+                            ->form([
+                                Textarea::make('note')->required()->label('Alasan')
+                            ])
                             ->visible(fn (OutgoingLetter $record) => 
                                 Auth::user()->role === 'pimpinan' && 
                                 !in_array($record->status, ['approved', 'rejected'])
                             )
-                            ->action(fn (OutgoingLetter $r, array $d) => $r->update([
-                                'status' => 'rejected', 'rejection_note' => $d['note'],
-                                'rejected_at' => now(), 'rejected_by' => Auth::id()
-                            ])),
+                            ->action(function (OutgoingLetter $record, array $data) {
+                                $record->update([
+                                    'status' => 'rejected', 
+                                    'rejection_note' => $data['note'],
+                                    'rejected_at' => now(),
+                                    'rejected_by' => Auth::id(),
+                                ]);
+                                Notification::make()->title('Surat Ditolak')->danger()->send();
+                            }),
                     ]),
 
-                Tables\Actions\EditAction::make()->visible(fn () => Auth::user()->role === 'admin'),
+                // --- EDIT & DELETE (ADMIN ONLY) ---
+                Tables\Actions\EditAction::make()
+                    ->visible(fn () => Auth::user()->role === 'admin'),
+
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn (OutgoingLetter $r) => Auth::user()->role === 'admin' && $r->status !== 'completed'),
+
+                // --- PRINT (SHARED) ---
                 Tables\Actions\Action::make('print')
                     ->icon('heroicon-o-printer')
                     ->url(fn (OutgoingLetter $record) => route('outgoing.print', $record))
