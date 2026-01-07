@@ -90,11 +90,18 @@ class OutgoingLetterResource extends Resource
             Forms\Components\Section::make('File Surat')
                 ->schema([
                     FileUpload::make('final_file_path')
-                        ->label('Upload Dokumen')
+                        ->label('Upload Dokumen Surat (Word/PDF)')
                         ->disk('public')->directory('surat-keluar')
-                        ->acceptedFileTypes(['application/pdf'])
+                        ->acceptedFileTypes(['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
                         ->maxSize(10240)->downloadable()->openable()
-                        ->required(fn (Get $get) => $get('type_id') != 1)
+                        
+                        ->required(fn (Get $get) => 
+                            $get('type_id') != 1 && 
+                            in_array($get('status'), ['pending_approval', 'approved', 'completed'])
+                        )
+                        ->validationMessages([
+                            'required' => 'Anda wajib mengupload file surat sebelum mengajukan ke Pimpinan.',
+                        ])
                         ->columnSpanFull(),
                 ])
                 ->visible(fn (Get $get) => $get('type_id') != 1),

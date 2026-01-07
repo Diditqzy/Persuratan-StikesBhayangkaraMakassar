@@ -76,14 +76,33 @@ class EditOutgoingLetter extends EditRecord
                 ->visible(fn () => $this->record->status !== 'completed'),
 
             Actions\Action::make('submit')
-                ->label('Ajukan Verifikasi')
+                ->label('Ajukan ke Pimpinan')
                 ->icon('heroicon-o-paper-airplane')
-                ->color('blue')
+                ->color('info')
                 ->requiresConfirmation()
-                ->visible(fn () => in_array($this->record->status, ['draft', 'revision_needed']))
-                ->action(function () {
-                    $this->record->update(['status' => 'pending_approval']);
-                    Notification::make()->success()->title('Surat Berhasil Diajukan')->send();
+                ->visible(fn (OutgoingLetter $record) =>
+                Auth::user()->role === 'admin' && 
+                in_array($record->status, ['draft', 'revision_needed']))
+                ->action(function (OutgoingLetter $record) {
+                    
+                    // --- VALIDASI TAMBAHAN ---
+                    // Jika bukan SKAK (ID 1) dan File Masih Kosong -> TOLAK AKSINYA
+                    if ($record->type_id != 1 && empty($record->final_file_path)) {
+                        Notification::make()
+                            ->title('Gagal Mengajukan!')
+                            ->body('Anda wajib mengupload file surat di bagian "File Surat" sebelum mengajukan ke Pimpinan.')
+                            ->danger()
+                            ->persistent()
+                            ->send();
+                        
+                        // Hentikan proses
+                        $this->halt(); 
+                        return;
+                    }
+
+                    $record->update(['status' => 'pending_approval']);
+                    
+                    Notification::make()->title('Surat Diajukan ke Pimpinan')->success()->send();
                     $this->redirect($this->getResource()::getUrl('index'));
                 }),
 

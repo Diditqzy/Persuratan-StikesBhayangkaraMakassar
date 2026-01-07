@@ -23,21 +23,27 @@ class UserLetterController extends Controller
 
     public function create(Request $request)
     {
-    if ($request->has('type_id')) {
-        $typeId = $request->query('type_id');
-        
-        $type = LetterType::find($typeId);
+        if ($request->has('type_id')) {
+            $typeId = $request->query('type_id');
+            
+            $type = LetterType::find($typeId);
 
-        if (!$type) {
-            return redirect()->route('user.letters.create')->with('error', 'Jenis surat tidak ditemukan.');
+            if (!$type) {
+                return redirect()->route('user.letters.create')
+                    ->with('error', 'Jenis surat tidak ditemukan.');
+            }
+
+            $formConfig = $type->form_config;
+
+            if (is_null($formConfig)) {
+                $formConfig = [];
+            }
+
+            return view('user.letters.create', compact('type', 'formConfig'));
         }
 
-        return view('user.letters.create', compact('type'));
-    }
-
-    $types = LetterType::all();
-    
-    return view('user.letters.select-type', compact('types'));
+        $types = LetterType::all();
+        return view('user.letters.select-type', compact('types'));
     }
 
     public function store(Request $request)
