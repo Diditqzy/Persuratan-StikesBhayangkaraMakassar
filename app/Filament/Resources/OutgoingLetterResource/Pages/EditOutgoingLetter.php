@@ -2,13 +2,15 @@
 
 namespace App\Filament\Resources\OutgoingLetterResource\Pages;
 
-use App\Filament\Resources\OutgoingLetterResource;
-use App\Models\OutgoingDisposition;
 use Filament\Actions;
-use Filament\Resources\Pages\EditRecord;
-use Filament\Notifications\Notification;
-use Filament\Forms\Components\Textarea;
+use App\Models\Signer;
+use App\Models\OutgoingLetter;
+use App\Models\OutgoingDisposition;
 use Illuminate\Support\Facades\Auth;
+use Filament\Forms\Components\Textarea;
+use Filament\Notifications\Notification;
+use Filament\Resources\Pages\EditRecord;
+use App\Filament\Resources\OutgoingLetterResource;
 
 class EditOutgoingLetter extends EditRecord
 {
@@ -86,19 +88,40 @@ class EditOutgoingLetter extends EditRecord
                 }),
 
             Actions\Action::make('approve')
-                ->label('Setujui Surat')
+                ->label('Setujui')
                 ->icon('heroicon-o-check-badge')
                 ->color('success')
                 ->requiresConfirmation()
                 ->visible(fn () => $this->record->status === 'pending_approval')
-                ->action(function () {
-                    $this->record->update([
-                        'status' => 'approved',
-                        'approved_at' => now(),
-                        'signature_code' => (string) \Illuminate\Support\Str::uuid(), 
-                    ]);
-                    Notification::make()->success()->title('Surat Disetujui')->send();
-                }),
+                ->action(function (OutgoingLetter $record) {
+                    
+                    // --- LOGIKA FIX SIGNER ID ---
+                    $pimpinan = Signer::whereHas('user', function ($query) {
+                        $query->where('role', 'pimpinan');
+                    })->first();
+
+                    if (!$pimpinan) {
+                        Notification::make()
+                            ->title('GAGAL: Data Penanda Tangan Pimpinan Tidak Ditemukan')
+                            ->danger()->send();
+                        return;
+                    }
+
+                    // PAKSA UPDATE SIGNER ID
+                    $record->signer_id = $pimpinan->id; 
+                    $record->status = 'approved';
+                    $record->approved_at = now();
+                    $record->save();
+
+                    Notification::make()->title('Surat Berhasil Disetujui')->success()->send();
+                    
+                    // Redirect balik ke index biar refresh
+                    $this->redirect($this->getResource()::getUrl('index'));
+                })
+                ->visible(fn ($record) => 
+                    Auth::user()->role === 'pimpinan' && 
+                    !in_array($record->status, ['approved', 'rejected'])
+                ),
 
             Actions\Action::make('request_revision')
                 ->label('Minta Revisi')

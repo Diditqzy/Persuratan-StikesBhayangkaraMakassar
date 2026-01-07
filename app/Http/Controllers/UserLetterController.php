@@ -132,7 +132,7 @@ class UserLetterController extends Controller
             'status' => 'submitted',
             'letter_date' => now(),
             'subject' => $type->name, 
-            'recipient' => 'Bagian Akademik / Administrasi', 
+            'recipient' => '-', 
             'additional_data' => $additionalData,
         ]);
 
@@ -245,7 +245,7 @@ class UserLetterController extends Controller
         // 3. SIMPAN PERUBAHAN
         $letter->update([
             'additional_data' => $currentAdditionalData, // Simpan ke additional_data (bukan 'data')
-            'status' => 'pending',  // Reset status
+            'status' => 'submitted',  // Reset status
             'rejection_note' => null 
         ]);
 
