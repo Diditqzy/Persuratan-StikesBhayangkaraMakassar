@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\OutgoingLetterResource\Pages;
+use App\Models\OutgoingDisposition;
 use App\Models\OutgoingLetter;
 use App\Models\Signer;
 use Filament\Forms;
@@ -61,12 +62,12 @@ class OutgoingLetterResource extends Resource
                         ->searchable()->preload()->required()->live()
                         ->afterStateUpdated(fn (Forms\Set $set) => $set('additional_data', [])),
 
-                    Forms\Components\TextInput::make('subject')->label('Perihal')->required()->maxLength(255)->columnSpan(2),
-                    Forms\Components\TextInput::make('recipient')->label('Tujuan')->required()->maxLength(255),
+                    Forms\Components\TextInput::make('subject')->label('Perihal')->required()->columnSpan(2),
+                    Forms\Components\TextInput::make('recipient')->label('Tujuan')->required(),
                     Forms\Components\DatePicker::make('letter_date')->label('Tanggal')->required()->default(now()),
                 ])->columns(2),
 
-            // --- KHUSUS SKAK (ID 1) ---
+            // --- DATA MAHASISWA (SKAK) ---
             Forms\Components\Section::make('Data Mahasiswa')
                 ->description('Data untuk generate otomatis.')
                 ->schema([
@@ -86,21 +87,22 @@ class OutgoingLetterResource extends Resource
                 ->visible(fn (Get $get) => $get('type_id') == 1)
                 ->columns(2),
 
-            // --- UPLOAD MANUAL (NON-SKAK) ---
-            Forms\Components\Section::make('File Surat')
+            // --- FILE SURAT (ADMIN) ---
+            Forms\Components\Section::make('File Surat Final (Admin)')
+                ->description('Upload file surat yang telah diketik/dibuat oleh Admin.')
                 ->schema([
                     FileUpload::make('final_file_path')
                         ->label('Upload Dokumen Surat (Word/PDF)')
                         ->disk('public')->directory('surat-keluar')
                         ->acceptedFileTypes(['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
                         ->maxSize(10240)->downloadable()->openable()
-                        
+                        // VALIDASI: Wajib jika bukan SKAK (ID 1) & Status Proses
                         ->required(fn (Get $get) => 
                             $get('type_id') != 1 && 
                             in_array($get('status'), ['pending_approval', 'approved', 'completed'])
                         )
                         ->validationMessages([
-                            'required' => 'Anda wajib mengupload file surat sebelum mengajukan ke Pimpinan.',
+                            'required' => 'Wajib upload file surat sebelum diajukan ke Pimpinan.',
                         ])
                         ->columnSpanFull(),
                 ])
@@ -123,7 +125,7 @@ class OutgoingLetterResource extends Resource
                         ])->columns(2),
                 ]),
 
-            // --- ADMIN VALIDATION ---
+            // --- STATUS (ADMIN) ---
             Forms\Components\Section::make('Validasi Admin')
                 ->schema([
                     Forms\Components\Select::make('status')
@@ -164,35 +166,30 @@ class OutgoingLetterResource extends Resource
                     ->label('Detail')
                     ->modalWidth('4xl')
                     ->extraModalFooterActions([
-                        // ACTION 1: APPROVE
+                        
+                        // 1. APPROVE (PIMPINAN)
                         Tables\Actions\Action::make('approve_modal')
                             ->label('Setujui & TTD')
-                            ->color('success')
-                            ->icon('heroicon-o-check-badge')
+                            ->color('success')->icon('heroicon-o-check-badge')
                             ->requiresConfirmation()
                             ->visible(fn (OutgoingLetter $record) => 
                                 Auth::user()->role === 'pimpinan' && 
                                 !in_array($record->status, ['approved', 'rejected'])
                             )
                             ->action(function (OutgoingLetter $record) {
-                                // Cari Pimpinan
                                 $pimpinan = Signer::whereHas('user', fn ($q) => $q->where('role', 'pimpinan'))->first();
-
                                 if (!$pimpinan) {
                                     Notification::make()->title('Data Signer Pimpinan tidak ditemukan!')->danger()->send();
                                     return;
                                 }
-
-                                // Paksa simpan manual agar aman dari fillable
-                                $record->signer_id = $pimpinan->id;
-                                $record->status = 'approved';
-                                $record->approved_at = now();
-                                $record->save();
-
+                                $record->update([
+                                    'status' => 'approved', 'signer_id' => $pimpinan->id,
+                                    'approved_at' => now(), 'approved_by' => Auth::id()
+                                ]);
                                 Notification::make()->title('Surat Disetujui')->success()->send();
                             }),
 
-                        // ACTION 2: REVISI
+                        // 2. REVISI (PIMPINAN)
                         Tables\Actions\Action::make('request_revision')
                             ->label('Revisi')
                             ->color('warning')
@@ -201,11 +198,16 @@ class OutgoingLetterResource extends Resource
                                 Auth::user()->role === 'pimpinan' && 
                                 !in_array($record->status, ['approved', 'rejected', 'revision_needed'])
                             )
-                            ->action(fn (OutgoingLetter $r, array $d) => $r->update([
-                                'status' => 'revision_needed', 'rejection_note' => $d['note']
-                            ])),
+                            ->action(function (OutgoingLetter $record, array $data) {
+                                OutgoingDisposition::create([
+                                    'outgoing_letter_id' => $record->id,
+                                    'user_id' => Auth::id(), 'instruction' => $data['note'],
+                                ]);
+                                $record->update(['status' => 'revision_needed', 'rejection_note' => $data['note']]);
+                                Notification::make()->title('Dikembalikan untuk revisi')->warning()->send();
+                            }),
 
-                        // ACTION 3: REJECT
+                        // 3. REJECT (PIMPINAN)
                         Tables\Actions\Action::make('reject_modal')
                             ->label('Tolak')
                             ->color('danger')
@@ -215,7 +217,8 @@ class OutgoingLetterResource extends Resource
                                 !in_array($record->status, ['approved', 'rejected'])
                             )
                             ->action(fn (OutgoingLetter $r, array $d) => $r->update([
-                                'status' => 'rejected', 'rejection_note' => $d['note']
+                                'status' => 'rejected', 'rejection_note' => $d['note'],
+                                'rejected_at' => now(), 'rejected_by' => Auth::id()
                             ])),
                     ]),
 

@@ -2,15 +2,15 @@
 
 namespace App\Filament\Resources\OutgoingLetterResource\Pages;
 
-use Filament\Actions;
-use App\Models\Signer;
-use App\Models\OutgoingLetter;
+use App\Filament\Resources\OutgoingLetterResource;
 use App\Models\OutgoingDisposition;
-use Illuminate\Support\Facades\Auth;
+use App\Models\OutgoingLetter;
+use App\Models\Signer;
+use Filament\Actions;
 use Filament\Forms\Components\Textarea;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
-use App\Filament\Resources\OutgoingLetterResource;
+use Illuminate\Support\Facades\Auth;
 
 class EditOutgoingLetter extends EditRecord
 {
@@ -24,176 +24,127 @@ class EditOutgoingLetter extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            // 1. TOMBOL TERIMA (Submitted -> Draft)
+            // --- 1. ADMIN: VERIFIKASI ---
             Actions\Action::make('verify')
                 ->label('Terima Pengajuan')
                 ->icon('heroicon-o-check')
                 ->color('success')
-                ->visible(fn () => $this->record->status === 'submitted')
+                ->visible(fn (OutgoingLetter $record) => Auth::user()->role === 'admin' && $record->status === 'submitted')
                 ->requiresConfirmation()
-                ->modalHeading('Terima Pengajuan?')
-                ->modalDescription('Status akan berubah menjadi Draft. Anda dapat mulai memproses surat ini.')
-                ->action(function () {
-                    $this->record->update(['status' => 'draft']);
-                    Notification::make()->success()->title('Pengajuan Diterima')->send();
-                    // Refresh halaman agar form terbuka (tidak disabled)
-                    $this->redirect(route('filament.admin.resources.outgoing-letters.edit', $this->record));
+                ->action(function (OutgoingLetter $record) {
+                    $record->update(['status' => 'draft', 'verified_by' => Auth::id(), 'verified_at' => now()]);
+                    Notification::make()->title('Pengajuan Diterima')->success()->send();
+                    $this->redirect(route('filament.admin.resources.outgoing-letters.edit', $record));
                 }),
 
-            // 2. TOMBOL TOLAK (Submitted -> Rejected)
+            // --- 2. ADMIN: TOLAK AWAL ---
             Actions\Action::make('reject_initial')
                 ->label('Tolak Pengajuan')
                 ->icon('heroicon-o-x-mark')
                 ->color('danger')
-                ->visible(fn () => $this->record->status === 'submitted')
-                ->form([
-                    \Filament\Forms\Components\Textarea::make('rejection_note')
-                        ->label('Alasan Penolakan')
-                        ->required(),
-                ])
-                ->action(function (array $data) {
-                    $this->record->update([
-                        'status' => 'rejected',
-                        'rejection_note' => $data['rejection_note'],
-                        'rejected_at' => now(),
-                        'rejected_by' => Auth::id(),
-                    ]);
-                    Notification::make()->warning()->title('Pengajuan Ditolak')->send();
-                    $this->redirect($this->getResource()::getUrl('index'));
-                }),
+                ->visible(fn (OutgoingLetter $record) => Auth::user()->role === 'admin' && $record->status === 'submitted')
+                ->form([Textarea::make('rejection_note')->label('Alasan')->required()])
+                ->action(fn (OutgoingLetter $record, array $data) => $record->update([
+                    'status' => 'rejected', 'rejection_note' => $data['rejection_note'],
+                    'rejected_at' => now(), 'rejected_by' => Auth::id()
+                ])),
 
-            // --- TOMBOL LAINNYA (YANG SUDAH ADA SEBELUMNYA) ---
-            
-            Actions\Action::make('download_qr')
-                ->label('Ambil TTD Digital')
-                ->icon('heroicon-o-qr-code')
-                ->color('success')
-                ->url(fn () => route('outgoing-letters.download-qr', $this->record))
-                ->openUrlInNewTab()
-                ->visible(fn () => in_array($this->record->status, ['approved', 'completed'])),
-
-            Actions\DeleteAction::make()
-                ->visible(fn () => $this->record->status !== 'completed'),
-
+            // --- 3. ADMIN: AJUKAN KE PIMPINAN ---
             Actions\Action::make('submit')
                 ->label('Ajukan ke Pimpinan')
                 ->icon('heroicon-o-paper-airplane')
                 ->color('info')
                 ->requiresConfirmation()
-                ->visible(fn (OutgoingLetter $record) =>
-                Auth::user()->role === 'admin' && 
-                in_array($record->status, ['draft', 'revision_needed']))
+                ->visible(fn (OutgoingLetter $record) => 
+                    Auth::user()->role === 'admin' && in_array($record->status, ['draft', 'revision_needed'])
+                )
                 ->action(function (OutgoingLetter $record) {
-                    
-                    // --- VALIDASI TAMBAHAN ---
-                    // Jika bukan SKAK (ID 1) dan File Masih Kosong -> TOLAK AKSINYA
+                    // Validasi: Wajib upload file final jika bukan SKAK
                     if ($record->type_id != 1 && empty($record->final_file_path)) {
-                        Notification::make()
-                            ->title('Gagal Mengajukan!')
-                            ->body('Anda wajib mengupload file surat di bagian "File Surat" sebelum mengajukan ke Pimpinan.')
-                            ->danger()
-                            ->persistent()
-                            ->send();
-                        
-                        // Hentikan proses
-                        $this->halt(); 
+                        Notification::make()->title('Gagal!')->body('Wajib upload file surat sebelum diajukan.')->danger()->send();
                         return;
                     }
-
-                    $record->update(['status' => 'pending_approval']);
-                    
-                    Notification::make()->title('Surat Diajukan ke Pimpinan')->success()->send();
+                    $record->update([
+                        'status' => 'pending_approval',
+                        'rejected_at' => null, 'rejected_by' => null, 'rejection_note' => null
+                    ]);
+                    Notification::make()->title('Surat Diajukan')->success()->send();
                     $this->redirect($this->getResource()::getUrl('index'));
                 }),
 
+            // --- 4. PIMPINAN: APPROVE ---
             Actions\Action::make('approve')
-                ->label('Setujui')
+                ->label('Setujui & TTD')
                 ->icon('heroicon-o-check-badge')
                 ->color('success')
                 ->requiresConfirmation()
-                ->visible(fn () => $this->record->status === 'pending_approval')
+                ->visible(fn (OutgoingLetter $record) => 
+                    Auth::user()->role === 'pimpinan' && $record->status === 'pending_approval'
+                )
                 ->action(function (OutgoingLetter $record) {
-                    
-                    // --- LOGIKA FIX SIGNER ID ---
-                    $pimpinan = Signer::whereHas('user', function ($query) {
-                        $query->where('role', 'pimpinan');
-                    })->first();
-
+                    $pimpinan = Signer::whereHas('user', fn ($q) => $q->where('role', 'pimpinan'))->first();
                     if (!$pimpinan) {
-                        Notification::make()
-                            ->title('GAGAL: Data Penanda Tangan Pimpinan Tidak Ditemukan')
-                            ->danger()->send();
+                        Notification::make()->title('Data Signer Pimpinan belum diatur.')->danger()->send();
                         return;
                     }
-
-                    // PAKSA UPDATE SIGNER ID
-                    $record->signer_id = $pimpinan->id; 
-                    $record->status = 'approved';
-                    $record->approved_at = now();
-                    $record->save();
-
-                    Notification::make()->title('Surat Berhasil Disetujui')->success()->send();
-                    
-                    // Redirect balik ke index biar refresh
+                    $record->update([
+                        'status' => 'approved', 'approved_at' => now(),
+                        'approved_by' => Auth::id(), 'signer_id' => $pimpinan->id
+                    ]);
+                    Notification::make()->title('Surat Disetujui')->success()->send();
                     $this->redirect($this->getResource()::getUrl('index'));
-                })
-                ->visible(fn ($record) => 
-                    Auth::user()->role === 'pimpinan' && 
-                    !in_array($record->status, ['approved', 'rejected'])
-                ),
+                }),
 
+            // --- 5. PIMPINAN: REVISI ---
             Actions\Action::make('request_revision')
                 ->label('Minta Revisi')
                 ->icon('heroicon-o-pencil-square')
                 ->color('warning')
-                ->visible(fn () => $this->record->status === 'pending_approval')
-                ->form([
-                    Textarea::make('instruction')->label('Catatan Revisi')->required(),
-                ])
-                ->action(function (array $data) {
+                ->visible(fn (OutgoingLetter $record) => 
+                    Auth::user()->role === 'pimpinan' && $record->status === 'pending_approval'
+                )
+                ->form([Textarea::make('instruction')->label('Catatan')->required()])
+                ->action(function (OutgoingLetter $record, array $data) {
                     OutgoingDisposition::create([
-                        'outgoing_letter_id' => $this->record->id,
-                        'user_id' => Auth::id(),
-                        'instruction' => $data['instruction'],
+                        'outgoing_letter_id' => $record->id,
+                        'user_id' => Auth::id(), 'instruction' => $data['instruction']
                     ]);
-                    $this->record->update(['status' => 'revision_needed']);
-                    Notification::make()->warning()->title('Dikembalikan untuk Revisi')->send();
+                    $record->update(['status' => 'revision_needed', 'rejection_note' => $data['instruction']]);
+                    Notification::make()->title('Dikembalikan untuk Revisi')->warning()->send();
                     $this->redirect($this->getResource()::getUrl('index'));
                 }),
 
+            // --- 6. ADMIN: FINALISASI ---
             Actions\Action::make('finalize')
-                ->label('Finalisasi Surat')
+                ->label('Finalisasi')
                 ->icon('heroicon-o-lock-closed')
                 ->color('primary')
                 ->requiresConfirmation()
-                ->visible(fn () => $this->record->status === 'approved')
-                ->action(function () {
-                    if (empty($this->record->letter_number)) {
-                        Notification::make()->danger()->title('Nomor Surat Kosong!')->send();
+                ->visible(fn (OutgoingLetter $record) => Auth::user()->role === 'admin' && $record->status === 'approved')
+                ->action(function (OutgoingLetter $record) {
+                    if (empty($record->letter_number)) {
+                        Notification::make()->title('Nomor Surat Wajib Diisi!')->danger()->send();
                         return;
                     }
-                    $this->record->update(['status' => 'completed']);
-                    Notification::make()->success()->title('Surat Final')->send();
+                    $record->update(['status' => 'completed', 'completed_at' => now(), 'completed_by' => Auth::id()]);
+                    Notification::make()->title('Surat Final')->success()->send();
                     $this->redirect($this->getResource()::getUrl('index'));
                 }),
-            
+
             Actions\Action::make('print')
                 ->label('Cetak PDF')
                 ->icon('heroicon-o-printer')
                 ->color('gray')
-                ->url(fn () => route('outgoing.print', $this->record))
+                ->url(fn (OutgoingLetter $record) => route('outgoing.print', $record))
                 ->openUrlInNewTab()
-                ->visible(fn () => $this->record->status === 'completed'),
+                ->visible(fn (OutgoingLetter $record) => in_array($record->status, ['approved', 'completed'])),
+
+            Actions\DeleteAction::make()->visible(fn (OutgoingLetter $r) => Auth::user()->role === 'admin' && $r->status !== 'completed'),
         ];
     }
 
     protected function getFormActions(): array
     {
-        // Jika status sudah Completed (Final), hilangkan tombol Save & Cancel
-        if ($this->record->status === 'completed') {
-            return [];
-        }
-
-        return parent::getFormActions();
+        return $this->record->status === 'completed' ? [] : parent::getFormActions();
     }
 }
