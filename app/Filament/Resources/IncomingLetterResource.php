@@ -3,33 +3,36 @@
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\IncomingLetterResource\Pages;
-use App\Filament\Resources\IncomingLetterResource\RelationManagers;
 use App\Models\IncomingLetter;
 use Filament\Forms;
-use Filament\Forms\Form;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Repeater;
+use Filament\Forms\Components\Section;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use Filament\Forms\Components\Section;
+use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Auth; 
-use Illuminate\Database\Eloquent\Builder;
-use Illuminate\Database\Eloquent\SoftDeletingScope;
+use Illuminate\Support\Facades\Auth;
 
 class IncomingLetterResource extends Resource
 {
     protected static ?string $model = IncomingLetter::class;
 
-    protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
+    protected static ?string $navigationIcon = 'heroicon-o-inbox-arrow-down';
+    protected static ?string $navigationLabel = 'Surat Masuk';
+    protected static ?string $modelLabel = 'Surat Masuk';
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
+                // --- SECTION 1: DATA SURAT ---
                 Section::make('Data Surat Masuk')
+                    ->description('Informasi utama surat dari instansi luar.')
                     ->schema([
                         TextInput::make('agenda_number')
                             ->label('Nomor Agenda (Internal)')
@@ -68,31 +71,35 @@ class IncomingLetterResource extends Resource
                             ->label('Scan Surat Asli')
                             ->disk('public')
                             ->directory('surat-masuk')
-                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/jpg', 'image/png'])
-                            ->rules(['file', 'mimes:pdf,jpg,jpeg,png', 'max:5120']) // Validasi sisi server (Max 5MB)
+                            ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
+                            ->maxSize(5120)
+                            ->downloadable()
+                            ->openable()
                             ->required()
                             ->columnSpanFull(),
-                    ])->columns(2),
+                    ])
+                    ->columns(2)
+                    // RULE: Disable edit data surat jika user adalah Pimpinan
+                    ->disabled(fn () => Auth::user()->role === 'pimpinan'),
 
                 // --- SECTION 2: DISPOSISI ---
                 Section::make('Lembar Disposisi')
                     ->description('Instruksi pimpinan untuk surat ini')
                     ->schema([
-                        Forms\Components\Repeater::make('dispositions')
-                            ->relationship() // Relasi ke tabel incoming_dispositions
+                        Repeater::make('dispositions')
+                            ->relationship()
                             ->label('Daftar Instruksi')
                             ->schema([
-                                // Menampilkan siapa yang membuat (Otomatis)
-                                Forms\Components\Select::make('user_id')
+                                Select::make('user_id')
                                     ->label('Pemberi Instruksi')
-                                    ->relationship('user', 'name') // Ambil nama user otomatis
-                                    ->default(fn () => Auth::id()) // Default user yg login
-                                    ->disabled() // Tidak bisa diubah (Read Only)
-                                    ->dehydrated() // Wajib ada: Supaya data tetap tersimpan meski disabled
+                                    ->relationship('user', 'name')
+                                    ->default(fn () => Auth::id())
+                                    ->disabled()   // Tidak bisa diubah user
+                                    ->dehydrated() // Tetap dikirim ke database
                                     ->required()
-                                    ->columnSpanFull(), // Atau columns(1) sesuai selera
+                                    ->columnSpanFull(),
 
-                                Forms\Components\Select::make('target_division')
+                                Select::make('target_division')
                                     ->label('Tujuan Disposisi')
                                     ->options([
                                         'Prodi Keperawatan' => 'Prodi Keperawatan',
@@ -102,22 +109,20 @@ class IncomingLetterResource extends Resource
                                         'Bagian Akademik' => 'Bagian Akademik',
                                         'LPPM' => 'LPPM',
                                         'Kemahasiswaan' => 'Kemahasiswaan',
+                                        'Arsip' => 'Arsip',
                                     ])
                                     ->searchable()
                                     ->required(),
 
-                                Forms\Components\Textarea::make('instruction')
+                                Textarea::make('instruction')
                                     ->label('Isi Instruksi')
                                     ->required()
+                                    ->rows(3)
                                     ->columnSpanFull(),
-
-                                // // Hidden: Simpan ID user otomatis
-                                // Forms\Components\Hidden::make('user_id')
-                                //     ->default(fn () => auth()->id()),
                             ])
                             ->columns(2)
-                            ->addActionLabel('Tambah Instruksi Baru')
-                            ->itemLabel(fn (array $state): ?string => $state['target_division'] ?? null),
+                            ->addActionLabel('Tambah Instruksi')
+                            ->itemLabel(fn (array $state) => $state['target_division'] ?? 'Disposisi Baru'),
                     ]),
             ]);
     }
@@ -128,58 +133,56 @@ class IncomingLetterResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('agenda_number')
                     ->label('No. Agenda')
-                    ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
                 
                 Tables\Columns\TextColumn::make('sender')
                     ->label('Pengirim')
-                    ->sortable()
-                    ->searchable(),
+                    ->searchable()
+                    ->sortable(),
 
                 Tables\Columns\TextColumn::make('subject')
                     ->label('Perihal')
-                    ->limit(30)
-                    ->searchable(),
+                    ->searchable()
+                    ->limit(30),
                 
                 Tables\Columns\TextColumn::make('received_date')
                     ->label('Diterima')
                     ->date('d M Y')
                     ->sortable(),
+
                 Tables\Columns\TextColumn::make('status')
-                    ->label('Status Disposisi')
-                    ->badge() // Biar tampil gaya lencana (kotak warna)
+                    ->label('Status')
+                    ->badge()
                     ->formatStateUsing(fn (string $state): string => match ($state) {
                         'waiting_disposition' => 'Menunggu',
                         'dispositioned' => 'Selesai',
                         default => $state,
                     })
                     ->color(fn (string $state): string => match ($state) {
-                        'waiting_disposition' => 'warning', // Kuning
-                        'dispositioned' => 'success', // Hijau
+                        'waiting_disposition' => 'warning',
+                        'dispositioned' => 'success',
                         default => 'gray',
                     })
                     ->sortable(),
             ])
-            ->filters([
-                //
-            ])
+            ->defaultSort('created_at', 'desc')
             ->actions([
-                Tables\Actions\EditAction::make(),
-                // Nanti kita tambah tombol "Disposisi" di sini
+                // Ubah label tombol Edit sesuai Role
+                Tables\Actions\EditAction::make()
+                    ->label(fn () => Auth::user()->role === 'pimpinan' ? 'Disposisi' : 'Edit')
+                    ->icon(fn () => Auth::user()->role === 'pimpinan' ? 'heroicon-o-pencil-square' : 'heroicon-o-pencil'),
+                
+                // Hapus hanya boleh admin
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn () => Auth::user()->role === 'admin'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
-                    Tables\Actions\DeleteBulkAction::make(),
+                    Tables\Actions\DeleteBulkAction::make()
+                        ->visible(fn () => Auth::user()->role === 'admin'),
                 ]),
             ]);
-    }
-
-    public static function getRelations(): array
-    {
-        return [
-            // Daftarkan Relation Manager di sini
-            // RelationManagers\DispositionsRelationManager::class,
-        ];
     }
 
     public static function getPages(): array
