@@ -117,7 +117,7 @@
                                 </div>
 
                                 <button type="submit" class="w-full flex justify-center py-3.5 px-4 border border-transparent rounded-xl shadow-lg text-sm font-bold text-white bg-[#050C7A] hover:bg-blue-900 focus:outline-none  transition-all duration-200 transform hover:-translate-y-0.5">
-                                    Masuk
+                                    MASUK
                                 </button>
                             </form>
                         </div>
