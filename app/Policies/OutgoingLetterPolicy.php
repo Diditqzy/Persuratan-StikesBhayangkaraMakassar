@@ -37,7 +37,11 @@ class OutgoingLetterPolicy
      */
     public function update(User $user, OutgoingLetter $outgoingLetter): bool
     {
-        return $user->role === 'admin' && $outgoingLetter->status !== 'completed';
+        if ($user->role === 'admin') return true;
+
+        if ($user->role === 'pimpinan') return true;
+
+        return $user->id === $outgoingLetter->user_id;
     }
 
     /**
