@@ -30,11 +30,19 @@ class AuthenticatedSessionController extends Controller
 
         $user = $request->user();
 
+        // 1. Jika User Biasa -> Masuk ke Halaman "Surat Saya"
+        if ($user->role === 'user') {
+            return redirect()->route('user.letters.index');
+        }
+
+        // 2. Jika Admin atau Pimpinan -> Masuk ke Filament Panel
+        // Filament secara default berada di path '/admin'
         if (in_array($user->role, ['admin', 'pimpinan'])) {
             return redirect()->to('/admin'); 
         }
 
-        return redirect()->to(route('dashboard', absolute: false));
+        // 3. Fallback (Jaga-jaga jika ada role lain di masa depan)
+        return redirect()->intended(route('dashboard', absolute: false));
     }
 
     /**

@@ -9,8 +9,28 @@ Route::get('/', function () {
     return view('welcome');
 });
 
+// Route::get('/dashboard', function () {
+//     // Jika user biasa mencoba akses dashboard, lempar ke surat saya
+//     if (auth()->user()->role === 'user') {
+//         return redirect()->route('user.letters.index');
+//     }
+    
+//     // Jika admin/pimpinan, tampilkan view dashboard
+//     return view('dashboard');
+// })->middleware(['auth', 'verified'])->name('dashboard');
+
 Route::get('/dashboard', function () {
-    return view('dashboard');
+    $user = auth()->user();
+
+    // 1. Jika User Biasa -> Lempar ke Surat Saya
+    if ($user->role === 'user') {
+        return redirect()->route('user.letters.index');
+    }
+    
+    // 2. Jika Admin/Pimpinan -> Lempar ke Filament
+    // (Agar jika mereka ketik /dashboard, otomatis masuk ke /admin)
+    return redirect()->to('/admin');
+
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 Route::get('/admin/outgoing-letters/{record}/print', [PdfController::class, 'printOutgoing'])
