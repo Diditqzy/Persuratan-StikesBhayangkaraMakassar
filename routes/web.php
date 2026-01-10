@@ -38,9 +38,9 @@ Route::get('/admin/outgoing-letters/{record}/print', [PdfController::class, 'pri
     ->middleware('auth');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+        // Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+        // Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+        // Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     Route::get('/surat-saya', [App\Http\Controllers\UserLetterController::class, 'index'])->name('user.letters.index');
     Route::get('/ajukan-surat', [App\Http\Controllers\UserLetterController::class, 'create'])->name('user.letters.create');
