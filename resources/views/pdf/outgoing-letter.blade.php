@@ -19,7 +19,7 @@
         .uppercase { text-transform: uppercase; }
         .underline { text-decoration: underline; }
         
-        /* KOP SURAT (3 KOLOM: LOGO - TEKS - LOGO) */
+        /* KOP SURAT */
         .kop-table {
             width: 100%;
             border-bottom: 3px solid #000;
@@ -35,12 +35,12 @@
         .kop-text-singkatan { font-size: 12pt; font-weight: bold; margin-bottom: 2px; }
         .kop-text-alamat { font-size: 9pt; font-style: normal; }
 
-        /* JUDUL SURAT */
+        /* KONTEN SURAT */
         .judul-surat {
             text-align: center;
             font-weight: bold;
             text-transform: uppercase;
-            font-size: 12pt; /* Sesuai gambar tidak terlalu besar */
+            font-size: 12pt;
             text-decoration: underline;
         }
         .nomor-surat {
@@ -49,11 +49,9 @@
             margin-top: 2px;
             margin-bottom: 25px;
         }
-
-        /* TABEL DATA (BIODATA) */
         .tabel-data {
             width: 100%;
-            margin-left: 20px; /* Indentasi seperti gambar */
+            margin-left: 20px;
             margin-bottom: 10px;
             border-collapse: collapse;
         }
@@ -61,63 +59,74 @@
             vertical-align: top;
             padding: 2px 0;
         }
-        .label-col { width: 140px; } /* Lebar label 'Nama', 'NUPTK' */
+        .label-col { width: 140px; }
         .sep-col { width: 20px; text-align: center; }
-
-        /* PARAGRAF */
         .paragraph {
             text-align: justify;
-            text-indent: 40px; /* Menjorok ke dalam */
+            text-indent: 40px;
             margin-bottom: 10px;
             line-height: 1.5;
         }
         .intro-text { margin-bottom: 10px; }
 
-        /* TANDA TANGAN */
-        .ttd-wrapper {
+        /* TANDA TANGAN (MENGGUNAKAN TABLE AGAR PRESISI) */
+        .ttd-container {
             float: right;
-            width: 45%;
+            width: 280px;
+            margin-top: 20px;
             text-align: center;
-            margin-top: 30px;
         }
-        .ttd-tanggal { margin-bottom: 5px; }
-        .ttd-jabatan { font-weight: bold; margin-bottom: 60px; } /* Ruang TTD/QR */
-        .ttd-nama { font-weight: bold; text-decoration: underline; }
+        /* CSS khusus untuk posisi Logo di tengah QR Code (Support DOMPDF) */
         
-        /* QR Code Style */
-        .qr-box {
-            height: 80px; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center;
-            margin: 5px auto;
-            position: relative;
-        }
-        .qr-img { width: 80px; height: 80px; }
-        .qr-overlay {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%);
-            width: 20px; height: 20px;
-            background: #fff;
-            padding: 2px;
-        }
+/* WRAPPER QR CODE */
+    .qr-wrapper {
+        position: relative;      /* Wajib relative */
+        display: inline-block;   /* Agar ukuran pas */
+        width: 100px;            /* Ukuran QR */
+        height: 100px;           
+        margin: 0 auto;          /* Tengah secara horizontal di dalam <td> */
+    }
 
-        /* CLEANUP */
-        .clear { clear: both; }
+    /* GAMBAR QR (Layer Bawah) */
+    .qr-image {
+        width: 100%;
+        height: 100%;
+    }
+
+    /* LOGO DI TENGAH (Layer Atas) */
+    .qr-logo {
+        position: absolute;      /* Menumpuk di atas QR */
+        top: 50%;                /* Dorong ke tengah vertikal 50% */
+        left: 50%;               /* Dorong ke tengah horizontal 50% */
+        
+        /* UKURAN LOGO */
+        width: 24px;             
+        height: 24px; 
+
+        /* KUNCI SUPAYA PAS DI TENGAH (RUMUS: Ukuran dibagi -2) */
+        /* Karena width 24px, maka margin-left: -12px */
+        margin-top: -12px;       
+        margin-left: -12px;      
+
+        /* Kosmetik */
+        background-color: #fff;  /* Background putih biar QR tidak tabrakan */
+        border-radius: 50%;      /* Bulat */
+        padding: 2px;
+        z-index: 10;
+    }
+        .ttd-spacer {
+            height: 100px; /* Tinggi pengganti jika tidak ada QR */
+        }
     </style>
 </head>
 <body>
 
-    {{-- KOP SURAT --}}
+    {{-- 1. KOP SURAT --}}
     <table class="kop-table">
         <tr>
-            {{-- LOGO KIRI --}}
             <td width="15%" align="center">
                 <img src="{{ public_path('images/logo-ybubm.jpg') }}" class="logo-kiri" alt="Logo Yayasan">
             </td>
-            
-            {{-- TEKS TENGAH --}}
             <td width="70%" align="center">
                 <div class="kop-text-yayasan uppercase">YAYASAN BRATA UTAMA BHAYANGKARA MAKASSAR</div>
                 <div class="kop-text-kampus uppercase">SEKOLAH TINGGI ILMU KESEHATAN BHAYANGKARA MAKASSAR</div>
@@ -127,26 +136,22 @@
                     Website : www.stikbhara.ac.id &nbsp; Email : stikbhara@gmail.com
                 </div>
             </td>
-
-            {{-- LOGO KANAN --}}
             <td width="15%" align="center">
                 <img src="{{ public_path('images/logo.png') }}" class="logo-kanan" alt="Logo STIKES">
             </td>
         </tr>
     </table>
 
-    {{-- LOGIKA: HANYA UNTUK SURAT KETERANGAN KULIAH (ID 1) --}}
+    {{-- 2. ISI SURAT --}}
     @if($data->type_id == 1)
-
         {{-- JUDUL --}}
         <div class="judul-surat">SURAT KETERANGAN KULIAH</div>
         <div class="nomor-surat">Nomor : &nbsp;&nbsp; {{ $data->letter_number ?? '...../SKT...../...../2025/STIKBHARA' }}</div>
 
-        {{-- ISI: DATA PENANDATANGAN --}}
+        {{-- DATA PENANDATANGAN --}}
         <div class="intro-text">
             Yang bertandatangan di bawah ini &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:
         </div>
-
         <table class="tabel-data">
             <tr>
                 <td class="label-col font-bold" style="letter-spacing: 2px;">Nama</td>
@@ -165,12 +170,10 @@
             </tr>
         </table>
 
-        {{-- ISI: DATA MAHASISWA --}}
+        {{-- DATA MAHASISWA --}}
         <div class="intro-text" style="margin-top: 15px;">
             Menerangkan bahwa &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;:
         </div>
-
-        {{-- Helper Variables dari additional_data --}}
         @php
             $mhs = $data->additional_data;
             $namaMhs = $mhs['nama'] ?? $data->user->name;
@@ -180,12 +183,9 @@
             $tempatLahir = $mhs['tempat_lahir'] ?? '...';
             $tglLahir = isset($mhs['tanggal_lahir']) ? \Carbon\Carbon::parse($mhs['tanggal_lahir'])->isoFormat('D MMMM Y') : '...';
             $alamat = $mhs['alamat'] ?? '...';
-            
-            // Logika Tahun Akademik (Otomatis berdasarkan tahun saat ini / input)
             $tahunIni = date('Y');
             $tahunDepan = $tahunIni + 1;
         @endphp
-
         <table class="tabel-data">
             <tr>
                 <td class="label-col font-bold" style="letter-spacing: 2px;">Nama</td>
@@ -209,7 +209,7 @@
             </tr>
         </table>
 
-        {{-- ISI: PERNYATAAN --}}
+        {{-- PARAGRAF PENUTUP --}}
         <div class="paragraph" style="margin-top: 20px;">
             Yang tersebut di atas adalah benar Mahasiswa STIKES Bhayangkara Makassar, 
             Tingkat {{ $tingkat }} Semester {{ $semester }} Tahun Akademik {{ $tahunIni }} / {{ $tahunDepan }}. 
@@ -220,40 +220,63 @@
             Demikian surat keterangan ini dibuat dengan sebenarnya untuk digunakan sebagaimana mestinya.
         </div>
 
-    {{-- TEMPLATE DEFAULT (NON-SKAK) --}}
     @else
-        {{-- (Kode template default Anda sebelumnya di sini, tidak saya ubah agar fokus ke request) --}}
         <div class="text-center" style="margin-top: 50px;">
             <h3>{{ $data->type->name }}</h3>
-            <p>Template belum dikonfigurasi secara spesifik.</p>
+            <p>Isi surat belum dikonfigurasi.</p>
         </div>
     @endif
 
-    {{-- BAGIAN TANDA TANGAN (SAMA PERSIS POSISINYA) --}}
-    <div class="ttd-wrapper">
-        <div class="ttd-tanggal">
-            Makassar, &nbsp; {{ \Carbon\Carbon::parse($data->letter_date)->isoFormat('MMMM Y') }}
-        </div>
-        <div class="ttd-jabatan">KETUA,</div>
-
-        {{-- LOGIKA QR CODE / TANDA TANGAN --}}
+    {{-- 3. AREA TANDA TANGAN (Menggunakan TABLE agar Layout Stabil) --}}
+    <table class="ttd-container">
+        {{-- Baris Tanggal --}}
+        <tr>
+            <td>
+                Makassar, {{ \Carbon\Carbon::parse($data->letter_date)->isoFormat('D MMMM Y') }}
+            </td>
+        </tr>
+        {{-- Baris Jabatan --}}
+        <tr>
+            <td class="font-bold" style="padding-bottom: 24px">
+                KETUA,
+            </td>
+        </tr>
+        {{-- Baris QR Code / Spacer --}}
+ <tr>
+    {{-- Align center di <td> sangat penting untuk PDF --}}
+    <td align="center" style="vertical-align: middle;">
+        
         @if(in_array($data->status, ['approved', 'completed']) && $data->signature_code)
-            <div class="qr-box" style="margin-top: -50px; margin-bottom: 10px;">
-                <img class="qr-img"
-                     src="data:image/svg+xml;base64,{!! base64_encode(QrCode::format('svg')->size(100)->margin(1)->errorCorrection('H')->generate(route('letter.verify', $data->signature_code))) !!}"
-                     alt="QR Code">
-                {{-- Overlay Logo Kecil di Tengah QR --}}
-                <img class="qr-overlay" src="{{ public_path('images/logo.png') }}" alt="Logo">
+            <div class="qr-wrapper">
+                {{-- Gambar QR --}}
+                <img class="qr-image" 
+                     src="data:image/svg+xml;base64,{!! base64_encode(QrCode::format('svg')->size(100)->margin(0)->errorCorrection('H')->generate(route('letter.verify', $data->signature_code))) !!}" 
+                     alt="QR">
+                
+                {{-- Gambar Logo Overlay --}}
+                {{-- Class "qr-logo" sudah diatur posisinya di CSS --}}
+                <img class="qr-logo" src="{{ public_path('images/logo.png') }}" alt="Logo">
             </div>
         @else
-            <div style="height: 60px; margin-top: -50px;"></div> {{-- Spacer kosong jika belum TTD --}}
+            {{-- Spacer jika belum TTD --}}
+            <div class="ttd-spacer" style="height: 100px;"></div>
         @endif
 
-        <div class="ttd-nama">{{ $data->signer->user->name }}</div>
-        <div class="font-bold">NUPTK : {{ $data->signer->employee_id ?? '....................' }}</div>
-    </div>
-
-    <div class="clear"></div>
+    </td>
+</tr>
+        {{-- Baris Nama --}}
+        <tr>
+            <td class="font-bold underline">
+                {{ $data->signer->user->name }}
+            </td>
+        </tr>
+        {{-- Baris NUPTK --}}
+        <tr>
+            <td class="font-bold">
+                NUPTK : {{ $data->signer->employee_id ?? '-' }}
+            </td>
+        </tr>
+    </table>
 
 </body>
 </html>
