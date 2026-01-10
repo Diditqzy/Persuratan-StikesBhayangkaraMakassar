@@ -34,16 +34,16 @@
                     Layanan administrasi persuratan STIKES Bhayangkara Makassar yang aman, tertib, digital, dan terintegrasi penuh.
                 </p>
 
-                <div class="space-y-4">
-                    <div class="flex items-center gap-3 bg-white/10 p-3 rounded-lg backdrop-blur-sm border border-white/10 w-fit">
-                        <div class="bg-yellow-400 p-1.5 rounded-full text-[#000275]">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
-                            </svg>
+                    <div class="space-y-4">
+                        <div class="flex items-center gap-3 bg-white/10 p-3 rounded-lg backdrop-blur-sm border hover:border-blue-300/70 hover:bg-blue-300/30 transition-all duration-500 border-white/10 w-fit">
+                            <div class="bg-yellow-400 p-1.5 rounded-full text-[#000275]">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <span class="text-sm font-semibold">Pemulihan Password Aman dan Terintegrasi</span>
                         </div>
-                        <span class="text-sm font-semibold">Pemulihan Password Aman</span>
                     </div>
-                </div>
             </div>
 
             <div class="w-full flex justify-center lg:justify-end">
@@ -76,8 +76,7 @@
                                         name="email" 
                                         value="{{ old('email') }}" 
                                         required 
-                                        autofocus 
-                                        class="flex-1 w-full px-4 py-3 bg-gray-50 border-2 border-[#000275] rounded-xl text-black text-sm placeholder-gray-400 transition-all duration-200 focus:bg-blue-100/50 focus:outline-none focus:ring-0 @error('email') border-red-500 bg-red-50 text-red-900 @enderror"
+                                        class="flex-1 w-full px-4 py-3 bg-gray-50 border-2 border-[#000275] rounded-xl text-black text-sm placeholder-gray-400 transition-all duration-200 focus:bg-blue-100/50 focus:outline-none focus:ring-0 focus:border-[#000275] focus-visible:outline-none focus-visible:ring-0  @error('email') border-red-500 bg-red-50 text-red-900 @enderror"
                                         placeholder="Masukkan Email Terdaftar"
                                     >
                                 </div>
