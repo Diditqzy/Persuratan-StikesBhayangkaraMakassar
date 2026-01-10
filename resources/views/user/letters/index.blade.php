@@ -100,11 +100,9 @@
                                 <td class="px-6 py-4">
                                     <div class="flex flex-col">
                                         <span class="inline-flex w-fit items-center px-2.5 py-0.5 rounded-md text-xs font-bold bg-blue-100 text-blue-800 mb-1 border border-blue-200">
-                                            {{ $letter->type->name }}
+                                            {{ $letter->type->name  }}
                                         </span>
-                                        <span class="text-sm font-semibold text-gray-900 line-clamp-2 leading-relaxed" title="{{ $letter->subject }}">
-                                            {{ Str::limit($letter->subject, 60) }}
-                                        </span>
+                                      
                                     </div>
                                 </td>
 
