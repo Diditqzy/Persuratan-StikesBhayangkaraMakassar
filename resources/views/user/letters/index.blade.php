@@ -59,7 +59,7 @@
                         <thead class="bg-slate-50">
                             <tr>
                                 <th scope="col" class="px-6 py-5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                    Tanggal
+                                    Tanggal Buat
                                 </th>
                                 <th scope="col" class="px-6 py-5 text-left text-xs font-bold text-slate-500 uppercase tracking-wider">
                                     Detail Surat

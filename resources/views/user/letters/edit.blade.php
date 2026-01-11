@@ -1,15 +1,33 @@
 <x-app-layout>
     <x-slot name="header">
-        <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Edit Pengajuan: ') }} {{ $letter->type->name }}
-        </h2>
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+                <h2 class="font-black text-2xl text-indigo-700 tracking-tight">
+                    Edit Pengajuan Surat
+                </h2>
+                <div class="flex items-center gap-2 mt-1">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-indigo-100 text-indigo-800">
+                        {{ $letter->type->name }}
+                    </span>
+                    <span class="text-xs text-gray-500">| Perbaiki data sesuai catatan admin</span>
+                </div>
+            </div>
+
+            <a href="{{ route('user.letters.index') }}"
+               class="inline-flex items-center justify-center px-6 py-3 font-bold text-white bg-indigo-600 rounded-xl hover:bg-indigo-700 hover:scale-105 transition-all shadow-indigo-500/30 shadow focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Kembali
+            </a>
+        </div>
     </x-slot>
 
     <div class="py-12">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             
             {{-- ALERT STATUS DITOLAK --}}
-            @if($letter->status === 'rejected')
+@if($letter->status === 'rejected')
                 <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 shadow-sm rounded-r-md" role="alert">
                     <div class="flex">
                         <div class="flex-shrink-0">
@@ -187,12 +205,16 @@
                             </div>
                         @endif
                     </div>
+                    
 
-                    <div class="flex items-center justify-end mt-8 pt-6 border-t">
-                        <a href="{{ route('user.letters.index') }}" class="text-gray-600 hover:text-gray-900 font-semibold underline decoration-2 underline-offset-4 text-sm mr-4">
-                            Batal
-                        </a>
-                        <x-primary-button class="px-6 py-2 text-base">
+                    <div class="flex items-center justify-end pt-6 border-t border-gray-100 gap-4">
+                            <a href="{{ route('user.letters.index') }}" class="text-gray-500 hover:text-gray-700 font-semibold text-sm transition-colors duration-200">
+                                Batal
+                            </a>
+                        <x-primary-button type="submit" class="inline-flex items-center justify-center px-6  py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-extrabold rounded-xl shadow-lg shadow-indigo-500/30 transition-all duration-200 transform hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                                </svg>
                             {{ __('Update & Kirim Ulang') }}
                         </x-primary-button>
                     </div>
