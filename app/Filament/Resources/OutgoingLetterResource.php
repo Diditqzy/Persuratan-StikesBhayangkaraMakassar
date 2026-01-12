@@ -25,6 +25,9 @@ class OutgoingLetterResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     protected static ?string $navigationLabel = 'Surat Keluar';
     protected static ?string $modelLabel = 'Surat Keluar';
+    protected static ?string $navigationGroup = 'Manajemen Surat'; // Masukkan ke grup yang sama
+    // protected static ?string $navigationLabel = 'Surat Keluar';
+    protected static ?int $navigationSort = 2;
 
     public static function getEloquentQuery(): Builder
     {
@@ -192,7 +195,7 @@ class OutgoingLetterResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Tgl')
+                    ->label('Tanggal')
                     ->date('d M Y')
                     ->sortable(),
                 

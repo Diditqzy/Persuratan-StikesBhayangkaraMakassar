@@ -32,10 +32,15 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             // ->login()
             ->colors([
-                'primary' => Color::Indigo,
+                // 'primary' => Color::Indigo,
+                'primary' => Color::hex('#000275'),
             
             ])
-
+            // --- TAMBAHKAN BAGIAN INI UNTUK MENGATUR URUTAN GRUP ---
+            ->navigationGroups([
+                'Manajemen Surat', // Ini akan muncul paling atas
+                'Pengaturan',      // Ini akan muncul di bawahnya
+            ])
             
             ->brandLogo(asset('images/logo-dashboard.png'))
             ->brandLogoHeight('4rem')
@@ -43,12 +48,12 @@ class AdminPanelProvider extends PanelProvider
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
-                Pages\Dashboard::class,
+                // Pages\Dashboard::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\\Filament\\Widgets')
             ->widgets([
-                Widgets\AccountWidget::class,
-                Widgets\FilamentInfoWidget::class,
+                // Widgets\AccountWidget::class,
+                // Widgets\FilamentInfoWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,
