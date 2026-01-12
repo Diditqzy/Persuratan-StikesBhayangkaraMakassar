@@ -25,6 +25,20 @@ class SignerResource extends Resource
 
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
 
+    protected static ?string $navigationGroup = 'Pengaturan';
+    protected static ?string $navigationLabel = 'Penanda tangan';
+
+    // 2. Nama tunggal (misal: "Tambah Penandatangan")
+    protected static ?string $modelLabel = 'Penanda tangan';
+
+    // 3. Nama jamak (misal: "Daftar Penandatanganan")
+    protected static ?string $pluralModelLabel = 'Penanda tangan';
+
+    // 4. Grup Menu (Jika ingin tetap di dalam grup "Pengaturan")
+
+    
+    // Opsional: Mengatur urutan menu dalam grup (1 = paling atas)
+    protected static ?int $navigationSort = 1;
     public static function getEloquentQuery(): Builder
     {
         return parent::getEloquentQuery()->with('user');
