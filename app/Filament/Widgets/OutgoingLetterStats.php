@@ -6,6 +6,7 @@ use App\Filament\Resources\OutgoingLetterResource;
 use App\Models\OutgoingLetter;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\Auth;
 
 class OutgoingLetterStats extends BaseWidget
 {
@@ -38,4 +39,9 @@ class OutgoingLetterStats extends BaseWidget
                 ->url(OutgoingLetterResource::getUrl('index')),
         ];
     }
+    public static function canView(): bool
+        {
+            // Hanya tampil jika role-nya admin
+            return Auth::user()->role === 'admin';
+        }
 }

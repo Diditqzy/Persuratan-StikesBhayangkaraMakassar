@@ -56,6 +56,7 @@ class User extends Authenticatable implements FilamentUser
         return in_array($this->role, ['admin', 'pimpinan']);
     }
 
+
     public function outgoingLetters()
     {
         return $this->hasMany(OutgoingLetter::class);
