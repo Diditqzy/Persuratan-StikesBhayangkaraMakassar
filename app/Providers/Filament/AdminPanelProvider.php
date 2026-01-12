@@ -11,12 +11,16 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Filament\Widgets;
+use Filament\Support\Assets\Css;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
+use Illuminate\Support\HtmlString;
+use Filament\Support\Facades\FilamentView; 
+use Filament\View\PanelsRenderHook;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -28,8 +32,14 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             // ->login()
             ->colors([
-                'primary' => Color::Amber,
+                'primary' => Color::Indigo,
+            
             ])
+
+            
+            ->brandLogo(asset('images/logo-dashboard.png'))
+            ->brandLogoHeight('4rem')
+            ->darkMode(false)
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([
@@ -54,5 +64,47 @@ class AdminPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
             ]);
+    }
+    // --- KITA PINDAHKAN LOGIKA CSS KESINI ---
+    public function boot(): void
+    {
+        FilamentView::registerRenderHook(
+            PanelsRenderHook::HEAD_END,
+            fn (): string => new HtmlString('
+                <style>
+                    /* SETUP CSS BIAR LEBIH KERAS (SPECIFICITY TINGGI) */
+                    
+                    /* 1. Header Atas & Logo Header */
+                    body .fi-topbar,
+                    body .fi-sidebar-header {
+                        background-color: #000275 !important;
+                        border-bottom: none !important;
+                        height: 5.5rem !important; /* Tinggi Header */
+                    }
+
+                    /* 2. Warna Teks, Icon, Logo Putih */
+                    body .fi-topbar .fi-btn, 
+                    body .fi-topbar .fi-icon-btn,
+                    body .fi-topbar .fi-btn-label,
+                    body .fi-sidebar-header .fi-logo,
+                    body .fi-sidebar-header .fi-logo span {
+                        color: white !important;
+                        --c-400: white !important; /* Paksa variabel warna text */
+                        --c-500: white !important;
+                    }
+
+                    /* 3. Background Navigasi */
+                    body .fi-topbar nav {
+                        background-color: transparent !important;
+                        height: 5.5rem !important; /* Tinggi Header */
+                    }
+
+                    /* 4. Hover Effect */
+                    body .fi-topbar .fi-icon-btn:hover {
+                        background-color: rgba(255, 255, 255, 0.2) !important;
+                    }
+                </style>
+            '),
+        );
     }
 }
