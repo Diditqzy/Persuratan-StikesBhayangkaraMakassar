@@ -32,10 +32,15 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             // ->login()
             ->colors([
-                'primary' => Color::Indigo,
+                // 'primary' => Color::Indigo,
+                'primary' => Color::hex('#000275'),
             
             ])
-
+            // --- TAMBAHKAN BAGIAN INI UNTUK MENGATUR URUTAN GRUP ---
+            ->navigationGroups([
+                'Manajemen Surat', // Ini akan muncul paling atas
+                'Pengaturan',      // Ini akan muncul di bawahnya
+            ])
             
             ->brandLogo(asset('images/logo-dashboard.png'))
             ->brandLogoHeight('4rem')

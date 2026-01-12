@@ -170,7 +170,7 @@ class IncomingLetterResource extends Resource
             ->columns(3); // Total grid layout halaman: 3 kolom
     }
 
-    public static function table(Table $table): Table
+ public static function table(Table $table): Table
     {
         return $table
             ->columns([
@@ -200,7 +200,7 @@ class IncomingLetterResource extends Resource
                     ->wrap(), // Agar teks panjang turun ke bawah
                 
                 Tables\Columns\TextColumn::make('received_date')
-                    ->label('Tgl Terima')
+                    ->label('Tanggal Terima')
                     ->date('d M Y')
                     ->sortable()
                     ->toggleable(),
@@ -223,13 +223,25 @@ class IncomingLetterResource extends Resource
                 // Filter berdasarkan tanggal bisa ditambahkan di sini nanti
             ])
             ->actions([
-                Tables\Actions\ActionGroup::make([
-                    Tables\Actions\ViewAction::make(),
-                    Tables\Actions\EditAction::make()
-                        ->label(fn () => Auth::user()->role === 'pimpinan' ? 'Disposisi' : 'Edit'),
-                    Tables\Actions\DeleteAction::make()
-                         ->visible(fn () => Auth::user()->role === 'admin'),
-                ])
+                // --- PERUBAHAN DI SINI (ActionGroup Dihapus) ---
+
+                // 1. Tombol View (Mata)
+                Tables\Actions\ViewAction::make()
+                    ->iconButton()
+                    ->tooltip('Lihat Detail'),
+
+                // 2. Tombol Edit / Disposisi (Pensil)
+                Tables\Actions\EditAction::make()
+                    ->label(fn () => Auth::user()->role === 'pimpinan' ? 'Disposisi' : 'Edit')
+                    ->tooltip(fn () => Auth::user()->role === 'pimpinan' ? 'Lakukan Disposisi' : 'Edit Data')
+                    ->iconButton()
+                    ->color(fn () => Auth::user()->role === 'pimpinan' ? 'warning' : 'primary'),
+
+                // 3. Tombol Delete (Sampah) - Hanya Admin
+                Tables\Actions\DeleteAction::make()
+                    ->visible(fn () => Auth::user()->role === 'admin')
+                    ->iconButton()
+                    ->tooltip('Hapus Data'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
