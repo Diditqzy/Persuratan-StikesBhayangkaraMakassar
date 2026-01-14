@@ -122,6 +122,11 @@ class IncomingLetterResource extends Resource
                                     ->relationship()
                                     ->hiddenLabel()
                                     ->schema([
+                                        Forms\Components\Hidden::make('user_id')
+                                            ->default(fn () => Auth::id())
+                                            ->dehydrated()
+                                            ->required(),
+
                                         Select::make('target_division')
                                             ->label('Teruskan Ke')
                                             ->options([
@@ -142,20 +147,16 @@ class IncomingLetterResource extends Resource
                                             ->placeholder('Contoh: Tindak lanjuti...')
                                             ->rows(2)
                                             ->required(),
-                                        
-                                        Select::make('user_id')
-                                            ->relationship('user', 'name')
-                                            ->default(fn () => Auth::id())
-                                            ->hidden()
-                                            ->dehydrated(),
                                     ])
                                     ->itemLabel(fn (array $state) => $state['target_division'] ?? 'Disposisi Baru')
                                     ->collapsible()
-                                    ->collapsed(),
-                            ])
-                            ,
+                                    ->collapsed(false) 
+                                    ->addable(fn () => Auth::user()->role === 'pimpinan')
+                                    ->deletable(fn () => Auth::user()->role === 'pimpinan'),
+                            ]),
                     ])
-                    ->columnSpan(['lg' => 1]), 
+                    ->columnSpan(['lg' => 1])
+                    ->visible(fn () => Auth::user()->role === 'pimpinan' || Auth::user()->role === 'admin'), 
             ])
             ->columns(3); 
     }
@@ -210,7 +211,7 @@ class IncomingLetterResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                // Filter tanggal jika perlu
+                // 
             ])
             ->actions([
                 Tables\Actions\ViewAction::make()
