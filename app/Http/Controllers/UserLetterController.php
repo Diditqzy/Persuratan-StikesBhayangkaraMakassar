@@ -30,7 +30,6 @@ class UserLetterController extends Controller
      */
     public function create(Request $request)
     {
-        // Jika user sudah memilih jenis surat (ada parameter ?type_id=X)
         if ($request->has('type_id')) {
             $type = LetterType::find($request->query('type_id'));
 
@@ -44,7 +43,6 @@ class UserLetterController extends Controller
             return view('user.letters.create', compact('type', 'formConfig'));
         }
 
-        // Jika belum memilih, tampilkan halaman pilih jenis surat
         $types = LetterType::all();
         return view('user.letters.select-type', compact('types'));
     }
@@ -56,10 +54,9 @@ class UserLetterController extends Controller
     {
         $type = LetterType::findOrFail($request->type_id);
         
-        // 1. VALIDASI DATA
         $rules = ['type_id' => 'required|exists:letter_types,id'];
 
-        if ($type->id === 1) { // Logika Khusus untuk Surat Keterangan Aktif Kuliah (SKAK)
+        if ($type->id === 1) { 
             $rules = array_merge($rules, [
                 'nama' => 'required|string', 'nim' => 'required|string',
                 'prodi' => 'required|string', 'semester' => 'required|numeric',
@@ -67,7 +64,7 @@ class UserLetterController extends Controller
                 'tanggal_lahir' => 'required|date', 'alamat' => 'required|string',
                 'lampiran' => 'required|file|mimes:pdf,jpg,jpeg,png|max:5120', 
             ]);
-        } else { // Logika untuk Surat Dinamis (Lainnya)
+        } else { 
             if (!empty($type->form_config)) {
                 foreach ($type->form_config as $field) {
                     if (!empty($field['required'])) {
@@ -81,7 +78,6 @@ class UserLetterController extends Controller
 
         $request->validate($rules);
 
-        // 2. PROSES INPUT DATA & FILE
         $additionalData = [];
         $attachments = [];
 
@@ -89,9 +85,7 @@ class UserLetterController extends Controller
             DB::beginTransaction();
 
             if ($type->id === 1) {
-                // Ambil data spesifik SKAK
                 $additionalData = $request->only(['nama', 'nim', 'prodi', 'semester', 'tingkat', 'tempat_lahir', 'tanggal_lahir', 'alamat']);
-                // Paksa nama user sesuai akun login agar tidak dipalsukan
                 $additionalData['nama'] = Auth::user()->name; 
                 
                 if ($request->hasFile('lampiran')) {
@@ -102,7 +96,6 @@ class UserLetterController extends Controller
                     ];
                 }
             } else {
-                // Ambil data dinamis
                 if (!empty($type->form_config)) {
                     foreach ($type->form_config as $field) {
                         $key = Str::slug($field['label']);
@@ -122,7 +115,6 @@ class UserLetterController extends Controller
                 }
             }
 
-            // 3. SIMPAN KE DATABASE (OutgoingLetter)
             $letter = OutgoingLetter::create([
                 'user_id' => Auth::id(),
                 'type_id' => $type->id,
@@ -131,10 +123,9 @@ class UserLetterController extends Controller
                 'subject' => $type->name, 
                 'recipient' => '-', 
                 'additional_data' => $additionalData,
-                'final_file_path' => null, // Menunggu Admin upload file jadi
+                'final_file_path' => null, 
             ]);
 
-            // 4. SIMPAN LAMPIRAN (LetterAttachment)
             if (!empty($attachments)) {
                 $letter->attachments()->createMany($attachments);
             }
@@ -146,7 +137,6 @@ class UserLetterController extends Controller
 
         } catch (\Exception $e) {
             DB::rollBack();
-            // Hapus file yang terlanjur terupload jika gagal save DB
             foreach ($attachments as $att) {
                 Storage::disk('public')->delete($att['file_path']);
             }
@@ -159,7 +149,6 @@ class UserLetterController extends Controller
      */
     public function edit(OutgoingLetter $letter) 
     {
-        // Pastikan surat milik user yang login dan statusnya boleh diedit
         if ($letter->user_id !== Auth::id()) abort(403);
         
         if (!in_array($letter->status, ['submitted', 'rejected', 'revision_needed'])) {
@@ -178,7 +167,6 @@ class UserLetterController extends Controller
     {
         if ($letter->user_id !== Auth::id()) abort(403);
 
-        // Cek status lagi sebelum update
         if (!in_array($letter->status, ['submitted', 'rejected', 'revision_needed'])) {
             return redirect()->route('user.letters.index')
                 ->with('error', 'Surat tidak dapat diedit karena statusnya sudah berubah.');
@@ -188,7 +176,6 @@ class UserLetterController extends Controller
         
         DB::beginTransaction();
         try {
-            // Logika Update (SKAK vs Dinamis)
             if ($letter->type_id == 1) {
                 $request->validate([
                     'nim' => 'required', 'prodi' => 'required', 'semester' => 'required',
@@ -200,14 +187,12 @@ class UserLetterController extends Controller
                 $currentData['nama'] = Auth::user()->name;
 
                 if ($request->hasFile('lampiran')) {
-                    // Hapus file lama jika ada
                     $oldAttachment = $letter->attachments()->where('filename', 'Lampiran Pendukung')->first();
                     if ($oldAttachment) {
                         Storage::disk('public')->delete($oldAttachment->file_path);
                         $oldAttachment->delete();
                     }
 
-                    // Upload baru
                     $letter->attachments()->create([
                         'filename' => 'Lampiran Pendukung',
                         'file_path' => $request->file('lampiran')->store('lampiran-surat-keluar', 'public')
@@ -220,14 +205,12 @@ class UserLetterController extends Controller
                         $key = Str::slug($field['label']);
                         if ($field['type'] === 'file') {
                             if ($request->hasFile($key)) {
-                                // Hapus file lama
                                 $oldAttachment = $letter->attachments()->where('filename', $field['label'])->first();
                                 if ($oldAttachment) {
                                     Storage::disk('public')->delete($oldAttachment->file_path);
                                     $oldAttachment->delete();
                                 }
                                 
-                                // Upload baru
                                 $letter->attachments()->create([
                                     'filename' => $field['label'],
                                     'file_path' => $request->file($key)->store('lampiran-surat-keluar', 'public')
@@ -240,10 +223,9 @@ class UserLetterController extends Controller
                 }
             }
 
-            // Reset status untuk review ulang
             $letter->update([
                 'additional_data' => $currentData,
-                'status' => 'submitted', // Kembalikan ke submitted agar admin review lagi
+                'status' => 'submitted', 
                 'rejection_note' => null,
                 'rejected_at' => null,
                 'rejected_by' => null,
@@ -264,24 +246,18 @@ class UserLetterController extends Controller
      */
     public function destroy(string $id)
     {
-        // 1. Cari surat berdasarkan ID dan pastikan milik user yang login
         $letter = OutgoingLetter::where('id', $id)
                     ->where('user_id', Auth::id())
                     ->firstOrFail();
-
-        // 2. Cek Validasi: Hanya status tertentu yang boleh dihapus
         if (!in_array($letter->status, ['submitted', 'rejected', 'revision_needed'])) {
             return back()->with('error', 'Surat yang sedang diproses atau sudah selesai tidak dapat dihapus.');
         }
 
         try {
             DB::transaction(function () use ($letter) {
-                // 3. Hapus File Fisik Surat Utama (Jika ada)
                 if ($letter->file_path && Storage::disk('public')->exists($letter->file_path)) {
                     Storage::disk('public')->delete($letter->file_path);
                 }
-
-                // 4. Hapus File Lampiran Tambahan & Datanya
                 if (method_exists($letter, 'attachments')) {
                     foreach ($letter->attachments as $attachment) {
                         if ($attachment->file_path && Storage::disk('public')->exists($attachment->file_path)) {
@@ -291,12 +267,9 @@ class UserLetterController extends Controller
                     }
                 }
 
-                // 5. Hapus Riwayat Surat (Histories) jika ada
                 if (method_exists($letter, 'histories')) {
                     $letter->histories()->delete(); 
                 }
-
-                // 6. Terakhir: Hapus Surat Utama
                 $letter->delete();
             });
 

@@ -15,13 +15,11 @@ class IncomingLetter extends Model
         'received_date' => 'date',
     ];
 
-    // Admin yang input data
     public function inputtedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'input_by_user_id');
     }
 
-    // Daftar disposisi (perintah pimpinan) terkait surat ini
     public function dispositions(): HasMany
     {
         return $this->hasMany(IncomingDisposition::class);

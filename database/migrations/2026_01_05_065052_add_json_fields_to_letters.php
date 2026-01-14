@@ -12,12 +12,10 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('letter_types', function (Blueprint $table) {
-            // Menyimpan konfigurasi form (Label, Tipe Input, Required?)
             $table->json('form_config')->nullable()->after('code'); 
         });
 
         Schema::table('outgoing_letters', function (Blueprint $table) {
-            // Menyimpan jawaban user
             $table->json('additional_data')->nullable()->after('status');
         });
     }

@@ -9,7 +9,6 @@ class LetterHistory extends Model
 {
     protected $guarded = ['id'];
 
-    // Pelaku aksi
     public function actor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'actor_id');

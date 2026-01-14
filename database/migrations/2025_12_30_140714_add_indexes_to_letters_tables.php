@@ -12,7 +12,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('outgoing_letters', function (Blueprint $table) {
-            // Index kolom yang sering dicari/difilter
             $table->index('subject'); 
             $table->index('letter_number');
             $table->index('letter_date');

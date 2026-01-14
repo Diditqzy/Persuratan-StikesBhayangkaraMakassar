@@ -12,7 +12,6 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('outgoing_letters', function (Blueprint $table) {
-            // Token unik untuk verifikasi
             $table->string('signature_code')->nullable()->unique()->after('status');
         });
     }
