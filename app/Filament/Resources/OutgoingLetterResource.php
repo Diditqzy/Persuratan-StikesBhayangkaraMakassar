@@ -25,8 +25,7 @@ class OutgoingLetterResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-document-text';
     protected static ?string $navigationLabel = 'Surat Keluar';
     protected static ?string $modelLabel = 'Surat Keluar';
-    protected static ?string $navigationGroup = 'Manajemen Surat'; // Masukkan ke grup yang sama
-    // protected static ?string $navigationLabel = 'Surat Keluar';
+    protected static ?string $navigationGroup = 'Manajemen Surat';
     protected static ?int $navigationSort = 2;
 
     public static function getEloquentQuery(): Builder
@@ -39,7 +38,6 @@ class OutgoingLetterResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            // --- ALERT SECTION ---
             Forms\Components\Section::make('Status')
                 ->schema([
                     Forms\Components\Placeholder::make('revisi_alert')
@@ -56,7 +54,6 @@ class OutgoingLetterResource extends Resource
                 ])
                 ->visible(fn ($record) => in_array($record?->status, ['revision_needed', 'rejected'])),
 
-            // --- INFORMASI DASAR ---
             Forms\Components\Section::make('Informasi Dasar')
                 ->schema([
                     Forms\Components\Select::make('type_id')
@@ -85,17 +82,11 @@ class OutgoingLetterResource extends Resource
                         ->default(now()),
                 ])->columns(2),
 
-            // --- DATA MAHASISWA (SKAK) ---
             Forms\Components\Section::make('Data Mahasiswa')
                 ->description('Data untuk generate otomatis.')
                 ->schema([
-                    Forms\Components\TextInput::make('additional_data.nama')
-                        ->label('Nama')
-                        ->required(),
-                    
-                    Forms\Components\TextInput::make('additional_data.nim')
-                        ->label('NIM')
-                        ->required(),
+                    Forms\Components\TextInput::make('additional_data.nama')->label('Nama')->required(),
+                    Forms\Components\TextInput::make('additional_data.nim')->label('NIM')->required(),
                     
                     Forms\Components\Grid::make(3)->schema([
                         Forms\Components\TextInput::make('additional_data.prodi')->label('Prodi')->required(),
@@ -117,7 +108,6 @@ class OutgoingLetterResource extends Resource
                 ->visible(fn (Get $get) => $get('type_id') == 1)
                 ->columns(2),
 
-            // --- FILE SURAT FINAL (ADMIN) ---
             Forms\Components\Section::make('File Surat Final (Admin)')
                 ->description('Upload file surat yang telah diketik/dibuat oleh Admin.')
                 ->schema([
@@ -129,20 +119,15 @@ class OutgoingLetterResource extends Resource
                         ->maxSize(10240)
                         ->downloadable()
                         ->openable()
-                        
-                        // VALIDASI KONDISIONAL
-                        ->required(fn (Get $get) => 
-                            $get('type_id') != 1 && 
-                            in_array($get('status'), ['pending_approval', 'approved', 'completed'])
-                        )
+                        // Wajib diisi jika BUKAN ID 1
+                        ->required(fn (Get $get) => $get('type_id') != 1)
                         ->validationMessages([
-                            'required' => 'Wajib upload file surat sebelum diajukan ke Pimpinan.',
+                            'required' => 'File surat wajib diupload sebelum disimpan.',
                         ])
                         ->columnSpanFull(),
                 ])
                 ->visible(fn (Get $get) => $get('type_id') != 1),
 
-            // --- LAMPIRAN PENDUKUNG ---
             Forms\Components\Section::make('Lampiran Pendukung')
                 ->schema([
                     Forms\Components\Placeholder::make('info')
@@ -166,10 +151,10 @@ class OutgoingLetterResource extends Resource
                         ])->columns(2),
                 ]),
 
-            // --- VALIDASI STATUS (ADMIN) ---
             Forms\Components\Section::make('Validasi Admin')
                 ->schema([
                     Forms\Components\Select::make('status')
+                        ->label('Status Pengajuan')
                         ->options([
                             'submitted' => 'Pengajuan Baru',
                             'draft' => 'Draft',
@@ -179,7 +164,7 @@ class OutgoingLetterResource extends Resource
                             'completed' => 'Selesai',
                         ])
                         ->default('submitted')
-                        ->disabled()
+                        ->disabled() // Admin tidak boleh ubah
                         ->dehydrated(),
                         
                     Forms\Components\TextInput::make('letter_number')
@@ -190,7 +175,7 @@ class OutgoingLetterResource extends Resource
         ]);
     }
 
-public static function table(Table $table): Table
+    public static function table(Table $table): Table
     {
         return $table
             ->columns([
@@ -208,10 +193,10 @@ public static function table(Table $table): Table
                 
                 Tables\Columns\TextColumn::make('subject')
                     ->label('Perihal')
-                    ->limit(30) // Limit teks biar gak kepanjangan
+                    ->limit(30)
                     ->searchable()
                     ->weight('bold')
-                    ->wrap(), // Wrap teks panjang
+                    ->wrap(),
 
                 Tables\Columns\TextColumn::make('user.name')
                     ->label('Pemohon')
@@ -238,12 +223,10 @@ public static function table(Table $table): Table
             ])
             ->defaultSort('created_at', 'desc')
             ->actions([
-                // --- 1. TOMBOL UMUM (View, Edit, Delete, Print) ---
-                
                 Tables\Actions\ViewAction::make()
                     ->label('Detail')
                     ->button()
-                    ->size('xs') // Ukuran Kecil
+                    ->size('xs')
                     ->color('gray'),
 
                 Tables\Actions\EditAction::make()
@@ -268,8 +251,7 @@ public static function table(Table $table): Table
                     ->openUrlInNewTab()
                     ->visible(fn ($record) => in_array($record->status, ['approved', 'completed'])),
                 
-                // --- 2. TOMBOL AKSI KHUSUS PIMPINAN ---
-                
+                // Actions Pimpinan
                 Tables\Actions\Action::make('approve_modal')
                     ->label('Setujui')
                     ->color('success')
