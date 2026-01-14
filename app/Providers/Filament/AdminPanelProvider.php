@@ -44,6 +44,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             
             ->brandLogo(asset('images/logo-dashboard.png'))
+            ->brandName('Sistem Persuratan')
             ->brandLogoHeight('4rem')
             ->darkMode(false)
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
