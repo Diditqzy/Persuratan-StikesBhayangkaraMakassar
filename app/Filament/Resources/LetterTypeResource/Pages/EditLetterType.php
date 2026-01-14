@@ -11,7 +11,6 @@ class EditLetterType extends EditRecord
 {
     protected static string $resource = LetterTypeResource::class;
 
-    // PROTEKSI URL MANUAL
     public function mount(int | string $record): void
     {
         if ($record == 1) {

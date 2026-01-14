@@ -16,30 +16,26 @@ class PimpinanStats extends BaseWidget
     protected function getStats(): array
     {
         return [
-            // 1. KOTAK UTAMA: BUTUH PERSETUJUAN (Ini Shortcut-nya)
             Stat::make('Butuh Persetujuan', OutgoingLetter::where('status', 'pending')->count())
                 ->description('Klik untuk validasi surat')
                 ->descriptionIcon('heroicon-m-pencil-square')
-                ->color('danger') // Merah (Penting)
-                ->url(OutgoingLetterResource::getUrl('index')), // Link ke halaman surat
+                ->color('danger') 
+                ->url(OutgoingLetterResource::getUrl('index')), 
 
-            // 2. KOTAK INFO: SUDAH DISETUJUI
             Stat::make('Sudah Disetujui', OutgoingLetter::where('status', 'approved')->count())
                 ->description('Total surat yang Anda tanda tangani')
                 ->descriptionIcon('heroicon-m-check-badge')
-                ->color('success'), // Hijau (Info saja, tidak perlu link jika tidak diminta)
+                ->color('success'), 
 
-            // 3. KOTAK INFO: DITOLAK
             Stat::make('Ditolak', OutgoingLetter::where('status', 'rejected')->count())
                 ->description('Surat yang dikembalikan')
                 ->descriptionIcon('heroicon-m-x-circle')
-                ->color('gray'), // Abu-abu
+                ->color('gray'), 
         ];
     }
 
     public static function canView(): bool
         {
-            // Pastikan di database users, kolom role isinya 'pimpinan' (huruf kecil semua)
             return Auth::user()->role === 'pimpinan';
         }
 }

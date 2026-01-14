@@ -10,19 +10,15 @@ use Flowframe\Trend\TrendValue;
 
 class LettersOverviewChart extends ChartWidget
 {
-    // Judul Grafik
     protected static ?string $heading = 'Statistik Surat (1 Tahun Terakhir)';
     
-    // Agar grafik memenuhi lebar layar (opsional, hapus jika ingin setengah layar)
     protected static ?int $sort = 1;
-    // protected int | string | array $columnSpan = 'full';
     protected static ?string $maxHeight = '300px';
-    protected int | string | array $columnSpan = 2; // Asumsi Grid total 3 kolom
+    protected int | string | array $columnSpan = 2; 
 
 
     protected function getData(): array
     {
-        // 1. Ambil Data Surat Masuk per Bulan
         $incomingData = Trend::model(IncomingLetter::class)
             ->between(
                 start: now()->startOfYear(),
@@ -31,7 +27,6 @@ class LettersOverviewChart extends ChartWidget
             ->perMonth()
             ->count();
 
-        // 2. Ambil Data Surat Keluar per Bulan
         $outgoingData = Trend::model(OutgoingLetter::class)
             ->between(
                 start: now()->startOfYear(),
@@ -45,13 +40,13 @@ class LettersOverviewChart extends ChartWidget
                 [
                     'label' => 'Surat Masuk',
                     'data' => $incomingData->map(fn (TrendValue $value) => $value->aggregate),
-                    'backgroundColor' => '#3b82f6', // Warna Biru
+                    'backgroundColor' => '#3b82f6',
                     'borderColor' => '#1d4ed8',
                 ],
                 [
                     'label' => 'Surat Keluar',
                     'data' => $outgoingData->map(fn (TrendValue $value) => $value->aggregate),
-                    'backgroundColor' => '#f59e0b', // Warna Kuning/Amber
+                    'backgroundColor' => '#f59e0b',
                     'borderColor' => '#b45309',
                 ],
             ],
@@ -61,6 +56,6 @@ class LettersOverviewChart extends ChartWidget
 
     protected function getType(): string
     {
-        return 'bar'; // Jenis Grafik: Batang
+        return 'bar'; 
     }
 }

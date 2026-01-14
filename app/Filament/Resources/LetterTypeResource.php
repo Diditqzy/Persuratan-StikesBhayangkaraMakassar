@@ -24,6 +24,7 @@ class LetterTypeResource extends Resource
     protected static ?string $navigationIcon = 'heroicon-o-tag';
     protected static ?string $navigationLabel = 'Jenis Surat';
     protected static ?string $modelLabel = 'Jenis Surat';
+    protected static ?string $pluralModelLabel = 'Jenis Surat';
     protected static ?string $navigationGroup = 'Pengaturan';
 
     public static function form(Form $form): Form
