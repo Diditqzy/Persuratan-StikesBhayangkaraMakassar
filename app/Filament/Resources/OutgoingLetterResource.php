@@ -190,26 +190,33 @@ class OutgoingLetterResource extends Resource
         ]);
     }
 
-    public static function table(Table $table): Table
+public static function table(Table $table): Table
     {
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Tanggal')
+                    ->label('Tanggal Buat')
                     ->date('d M Y')
-                    ->sortable(),
+                    ->sortable()
+                    ->toggleable(),
                 
                 Tables\Columns\TextColumn::make('type.name')
                     ->label('Jenis')
+                    ->badge()
+                    ->color('primary')
                     ->sortable(),
-                
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Pemohon')
-                    ->searchable(),
                 
                 Tables\Columns\TextColumn::make('subject')
                     ->label('Perihal')
-                    ->limit(30),
+                    ->limit(30) // Limit teks biar gak kepanjangan
+                    ->searchable()
+                    ->weight('bold')
+                    ->wrap(), // Wrap teks panjang
+
+                Tables\Columns\TextColumn::make('user.name')
+                    ->label('Pemohon')
+                    ->searchable()
+                    ->toggleable(),
                 
                 Tables\Columns\TextColumn::make('status')
                     ->badge()
@@ -231,100 +238,117 @@ class OutgoingLetterResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->actions([
+                // --- 1. TOMBOL UMUM (View, Edit, Delete, Print) ---
+                
                 Tables\Actions\ViewAction::make()
                     ->label('Detail')
-                    ->modalWidth('4xl')
-                    ->extraModalFooterActions([
-                        
-                        // --- ACTION PIMPINAN: APPROVE ---
-                        Tables\Actions\Action::make('approve_modal')
-                            ->label('Setujui & TTD')
-                            ->color('success')
-                            ->icon('heroicon-o-check-badge')
-                            ->requiresConfirmation()
-                            ->visible(fn (OutgoingLetter $record) => 
-                                Auth::user()->role === 'pimpinan' && 
-                                !in_array($record->status, ['approved', 'rejected'])
-                            )
-                            ->action(function (OutgoingLetter $record) {
-                                $pimpinan = Signer::whereHas('user', fn ($q) => $q->where('role', 'pimpinan'))->first();
+                    ->button()
+                    ->size('xs') // Ukuran Kecil
+                    ->color('gray'),
 
-                                if (!$pimpinan) {
-                                    Notification::make()->title('Data Signer Pimpinan tidak ditemukan!')->danger()->send();
-                                    return;
-                                }
-
-                                $record->update([
-                                    'status' => 'approved',
-                                    'signer_id' => $pimpinan->id,
-                                    'approved_at' => now(),
-                                    'approved_by' => Auth::id(),
-                                ]);
-
-                                Notification::make()->title('Surat Disetujui')->success()->send();
-                            }),
-
-                        // --- ACTION PIMPINAN: REVISI ---
-                        Tables\Actions\Action::make('request_revision')
-                            ->label('Revisi')
-                            ->color('warning')
-                            ->form([
-                                Textarea::make('note')->required()->label('Catatan')
-                            ])
-                            ->visible(fn (OutgoingLetter $record) => 
-                                Auth::user()->role === 'pimpinan' && 
-                                !in_array($record->status, ['approved', 'rejected', 'revision_needed'])
-                            )
-                            ->action(function (OutgoingLetter $record, array $data) {
-                                OutgoingDisposition::create([
-                                    'outgoing_letter_id' => $record->id,
-                                    'user_id' => Auth::id(),
-                                    'instruction' => $data['note'],
-                                ]);
-
-                                $record->update([
-                                    'status' => 'revision_needed', 
-                                    'rejection_note' => $data['note']
-                                ]);
-                                
-                                Notification::make()->title('Dikembalikan untuk revisi')->warning()->send();
-                            }),
-
-                        // --- ACTION PIMPINAN: REJECT ---
-                        Tables\Actions\Action::make('reject_modal')
-                            ->label('Tolak')
-                            ->color('danger')
-                            ->form([
-                                Textarea::make('note')->required()->label('Alasan')
-                            ])
-                            ->visible(fn (OutgoingLetter $record) => 
-                                Auth::user()->role === 'pimpinan' && 
-                                !in_array($record->status, ['approved', 'rejected'])
-                            )
-                            ->action(function (OutgoingLetter $record, array $data) {
-                                $record->update([
-                                    'status' => 'rejected', 
-                                    'rejection_note' => $data['note'],
-                                    'rejected_at' => now(),
-                                    'rejected_by' => Auth::id(),
-                                ]);
-                                Notification::make()->title('Surat Ditolak')->danger()->send();
-                            }),
-                    ]),
-
-                // --- EDIT & DELETE (ADMIN ONLY) ---
                 Tables\Actions\EditAction::make()
+                    ->label('Edit')
+                    ->button()
+                    ->size('xs')
                     ->visible(fn () => Auth::user()->role === 'admin'),
 
                 Tables\Actions\DeleteAction::make()
+                    ->label('Hapus')
+                    ->button()
+                    ->size('xs')
                     ->visible(fn (OutgoingLetter $r) => Auth::user()->role === 'admin' && $r->status !== 'completed'),
 
-                // --- PRINT (SHARED) ---
                 Tables\Actions\Action::make('print')
+                    ->label('Cetak')
                     ->icon('heroicon-o-printer')
+                    ->button()
+                    ->size('xs')
+                    ->color('info')
                     ->url(fn (OutgoingLetter $record) => route('outgoing.print', $record))
                     ->openUrlInNewTab()
                     ->visible(fn ($record) => in_array($record->status, ['approved', 'completed'])),
+                
+                // --- 2. TOMBOL AKSI KHUSUS PIMPINAN ---
+                
+                Tables\Actions\Action::make('approve_modal')
+                    ->label('Setujui')
+                    ->color('success')
+                    ->icon('heroicon-o-check')
+                    ->button()
+                    ->size('xs')
+                    ->requiresConfirmation()
+                    ->visible(fn (OutgoingLetter $record) => 
+                        Auth::user()->role === 'pimpinan' && 
+                        !in_array($record->status, ['approved', 'rejected'])
+                    )
+                    ->action(function (OutgoingLetter $record) {
+                        $pimpinan = Signer::whereHas('user', fn ($q) => $q->where('role', 'pimpinan'))->first();
+
+                        if (!$pimpinan) {
+                            Notification::make()->title('Data Signer Pimpinan tidak ditemukan!')->danger()->send();
+                            return;
+                        }
+
+                        $record->update([
+                            'status' => 'approved',
+                            'signer_id' => $pimpinan->id,
+                            'approved_at' => now(),
+                            'approved_by' => Auth::id(),
+                        ]);
+
+                        Notification::make()->title('Surat Disetujui')->success()->send();
+                    }),
+                
+                Tables\Actions\Action::make('request_revision')
+                    ->label('Revisi')
+                    ->color('warning')
+                    ->icon('heroicon-o-pencil-square')
+                    ->button()
+                    ->size('xs')
+                    ->form([
+                        Textarea::make('note')->required()->label('Catatan Revisi')
+                    ])
+                    ->visible(fn (OutgoingLetter $record) => 
+                        Auth::user()->role === 'pimpinan' && 
+                        !in_array($record->status, ['approved', 'rejected', 'revision_needed'])
+                    )
+                    ->action(function (OutgoingLetter $record, array $data) {
+                        OutgoingDisposition::create([
+                            'outgoing_letter_id' => $record->id,
+                            'user_id' => Auth::id(),
+                            'instruction' => $data['note'],
+                        ]);
+
+                        $record->update([
+                            'status' => 'revision_needed', 
+                            'rejection_note' => $data['note']
+                        ]);
+                        
+                        Notification::make()->title('Dikembalikan untuk revisi')->warning()->send();
+                    }),
+                
+                Tables\Actions\Action::make('reject_modal')
+                    ->label('Tolak')
+                    ->color('danger')
+                    ->icon('heroicon-o-x-mark')
+                    ->button()
+                    ->size('xs')
+                    ->form([
+                        Textarea::make('note')->required()->label('Alasan Penolakan')
+                    ])
+                    ->visible(fn (OutgoingLetter $record) => 
+                        Auth::user()->role === 'pimpinan' && 
+                        !in_array($record->status, ['approved', 'rejected'])
+                    )
+                    ->action(function (OutgoingLetter $record, array $data) {
+                        $record->update([
+                            'status' => 'rejected', 
+                            'rejection_note' => $data['note'],
+                            'rejected_at' => now(),
+                            'rejected_by' => Auth::id(),
+                        ]);
+                        Notification::make()->title('Surat Ditolak')->danger()->send();
+                    }),
             ]);
     }
 

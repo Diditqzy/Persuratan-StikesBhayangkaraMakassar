@@ -197,7 +197,7 @@ class IncomingLetterResource extends Resource
                     ->label('Perihal')
                     ->searchable()
                     ->limit(30)
-                    ->wrap(), // Agar teks panjang turun ke bawah
+                    ->wrap(),
                 
                 Tables\Columns\TextColumn::make('received_date')
                     ->label('Tanggal Terima')
@@ -220,28 +220,32 @@ class IncomingLetterResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                // Filter berdasarkan tanggal bisa ditambahkan di sini nanti
+                // Filter tanggal jika perlu
             ])
             ->actions([
-                // --- PERUBAHAN DI SINI (ActionGroup Dihapus) ---
+                // --- PERUBAHAN DI SINI: Ganti iconButton() jadi button() ---
 
-                // 1. Tombol View (Mata)
+                // 1. Tombol View
                 Tables\Actions\ViewAction::make()
-                    ->iconButton()
-                    ->tooltip('Lihat Detail'),
+                    ->label('Detail') // Teks yang muncul di tombol
+                    ->button()        // Tampilkan sebagai tombol (bukan link/icon saja)
+                    ->size('xs')      // Ukuran kecil agar muat di tabel
+                    ->color('gray'),  // Warna netral
 
-                // 2. Tombol Edit / Disposisi (Pensil)
+                // 2. Tombol Edit / Disposisi
                 Tables\Actions\EditAction::make()
                     ->label(fn () => Auth::user()->role === 'pimpinan' ? 'Disposisi' : 'Edit')
-                    ->tooltip(fn () => Auth::user()->role === 'pimpinan' ? 'Lakukan Disposisi' : 'Edit Data')
-                    ->iconButton()
+                    ->button()
+                    ->size('xs')
                     ->color(fn () => Auth::user()->role === 'pimpinan' ? 'warning' : 'primary'),
 
-                // 3. Tombol Delete (Sampah) - Hanya Admin
+                // 3. Tombol Delete (Hanya Admin)
                 Tables\Actions\DeleteAction::make()
                     ->visible(fn () => Auth::user()->role === 'admin')
-                    ->iconButton()
-                    ->tooltip('Hapus Data'),
+                    ->label('Hapus')
+                    ->button()
+                    ->size('xs')
+                    ->color('danger'),
             ])
             ->bulkActions([
                 Tables\Actions\BulkActionGroup::make([
@@ -249,7 +253,6 @@ class IncomingLetterResource extends Resource
                 ]),
             ]);
     }
-
     public static function getPages(): array
     {
         return [
