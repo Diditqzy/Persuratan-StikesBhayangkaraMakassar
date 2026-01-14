@@ -1,5 +1,4 @@
 <x-app-layout>
-    {{-- HEADER DENGAN GRADASI HALUS --}}
     <x-slot name="header">
         <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
             <div>
@@ -9,7 +8,7 @@
                 <p class="text-sm text-gray-500 mt-1">Kelola riwayat dan status pengajuan surat Anda.</p>
             </div>
             
-            {{-- TOMBOL CREATE DENGAN GRADASI --}}
+            {{-- TOMBOL CREATE --}}
             <a href="{{ route('user.letters.create') }}" 
                class="group relative inline-flex items-center justify-center px-6 py-3 overflow-hidden font-bold text-white transition-all duration-300 bg-indigo-600 rounded-xl hover:bg-indigo-700 hover:scale-105 hover:shadow-xl shadow-indigo-500/30 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2">
                 <span class="relative flex items-center gap-2">
@@ -22,11 +21,10 @@
         </div>
     </x-slot>
 
-    {{-- BACKGROUND HALAMAN LEBIH BERWARNA (GRADIENT) --}}
     <div class="py-12 bg-gradient-to-br from-indigo-50 via-white to-blue-50 min-h-screen">
         <div class="max-w-7xl mx-auto sm:px-8 lg:px-9">
             
-            {{-- ALERT SUCCESS YANG LEBIH MODERN --}}
+            {{-- ALERT SUCCESS --}}
             @if(session('success'))
                 <div x-data="{ show: true }" x-show="show" x-transition 
                      class="mb-6 bg-white border-l-4 border-emerald-500 p-4 rounded-r-xl shadow-lg shadow-emerald-100 flex items-start justify-between relative overflow-hidden">
@@ -51,7 +49,6 @@
             {{-- MAIN CARD --}}
             <div class="bg-white overflow-hidden shadow-xl shadow-indigo-100/50 sm:rounded-3xl border border-indigo-50 relative">
                 
-                {{-- Dekorasi Header Card --}}
                 <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500"></div>
 
                 <div class="overflow-x-auto">
@@ -76,7 +73,7 @@
                             @forelse($letters as $letter)
                             <tr class="hover:bg-indigo-50/30 transition-colors duration-200 group">
                                 
-                                {{-- KOLOM TANGGAL (Gaya Kalender) --}}
+                                {{-- KOLOM TANGGAL --}}
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     <div class="flex items-center gap-3">
                                         <div class="flex flex-col items-center justify-center min-w-[60px] p-2 rounded-xl bg-indigo-50 border border-indigo-100 text-indigo-700 shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all duration-200">
@@ -106,7 +103,7 @@
                                     </div>
                                 </td>
 
-                                {{-- KOLOM STATUS (Badge Modern) --}}
+                                {{-- KOLOM STATUS --}}
                                 <td class="px-6 py-4 whitespace-nowrap">
                                     @php
                                         // Konfigurasi Warna Badge yang Lebih Cerah
@@ -162,8 +159,7 @@
                                 {{-- KOLOM AKSI --}}
                                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                                     
-                                    {{-- JIKA APPROVED ATAU COMPLETED: TAMPILKAN TOMBOL UNDUH --}}
-                                    @if(in_array($letter->status, ['approved', 'completed']))
+                                    @if(in_array($letter->status, ['completed']))
                                         <a href="{{ route('letters.print', $letter->id) }}" target="_blank" 
                                            class="inline-flex items-center px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white rounded-lg shadow-md shadow-emerald-500/30 transition-all duration-200 hover:-translate-y-0.5">
                                             <svg class="w-4 h-4 mr-2 animate-bounce" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -172,7 +168,6 @@
                                             Unduh PDF
                                         </a>
                                     
-                                    {{-- JIKA MASIH BISA DIEDIT (SUBMITTED / REJECTED) --}}
                                     @elseif(in_array($letter->status, ['submitted', 'rejected', 'revision_needed']))
                                         <div class="flex items-center gap-2">
                                             {{-- Tombol Edit --}}

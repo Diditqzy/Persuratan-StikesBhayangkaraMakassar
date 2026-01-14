@@ -26,7 +26,7 @@
     <div class="py-12">
         <div class="max-w-4xl mx-auto sm:px-6 lg:px-8">
             
-            {{-- ALERT STATUS DITOLAK --}}
+            {{-- ALERT --}}
 @if($letter->status === 'rejected')
                 <div class="bg-red-50 border-l-4 border-red-500 text-red-700 p-4 mb-6 shadow-sm rounded-r-md" role="alert">
                     <div class="flex">
@@ -58,12 +58,8 @@
                             Perbarui Data Pemohon
                         </h3>
 
-                        {{-- ========================================== --}}
-                        {{-- SKENARIO 1: SURAT KETERANGAN AKTIF KULIAH --}}
-                        {{-- ========================================== --}}
                         @if($letter->type_id == 1)
                             
-                            {{-- Helper variables untuk data lama --}}
                             @php
                                 $data = $letter->additional_data ?? [];
                                 // Cari attachment lampiran (jika ada)
@@ -71,7 +67,7 @@
                             @endphp
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {{-- Nama (Readonly) --}}
+                                {{-- Nama --}}
                                 <div>
                                     <x-input-label for="nama" value="Nama Lengkap" />
                                     <x-text-input id="nama" class="block mt-1 w-full bg-gray-100" type="text" name="nama" :value="Auth::user()->name" required />
@@ -141,9 +137,7 @@
                                 </div>
                             </div>
 
-                        {{-- ========================================== --}}
                         {{-- SKENARIO 2: SURAT DINAMIS (CUSTOM)      --}}
-                        {{-- ========================================== --}}
                         @elseif(!empty($formConfig))
                             @foreach($formConfig as $field)
                                 @php
@@ -151,9 +145,6 @@
                                     $isRequired = $field['required'] ?? false;
                                     $label = $field['label'] . ($isRequired ? ' *' : '');
                                     
-                                    // Ambil data existing dari kolom 'data' (bukan additional_data)
-                                    // Asumsi model OutgoingLetter casts 'data' => 'array'
-                                    // Jika Anda pakai additional_data juga untuk custom, sesuaikan variabelnya
                                     $existingValue = $letter->additional_data[$key] ?? null; 
                                 @endphp
 
@@ -165,7 +156,6 @@
                                     @if($field['type'] === 'file')
                                         {{-- Cek apakah ada file lama untuk field ini --}}
                                         @php
-                                            // Mencari di relasi attachments berdasarkan nama field
                                             $existingFile = $letter->attachments->where('filename', $field['label'])->first();
                                         @endphp
 

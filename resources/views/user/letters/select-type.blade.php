@@ -9,7 +9,7 @@
                 <p class="text-sm text-gray-500 mt-1">Silakan pilih surat yang ingin Anda ajukan.</p>
             </div>
 
-            {{-- TOMBOL KEMBALI (Style Secondary) --}}
+            {{-- TOMBOL KEMBALI --}}
             <a href="{{ route('user.letters.index') }}" 
                class="inline-flex items-center justify-center px-6 py-3 overflow-hidden font-bold text-white transition-all duration-300 bg-indigo-600 rounded-xl hover:bg-indigo-700 hover:scale-105 hover:shadow-xl shadow-indigo-500/30 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -20,7 +20,6 @@
         </div>
     </x-slot>
 
-    {{-- KONTEN UTAMA DENGAN BACKGROUND GRADIENT --}}
     <div class="py-12 bg-gradient-to-br from-indigo-50 via-white to-blue-50 min-h-screen">
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             
@@ -29,9 +28,6 @@
                 @foreach($types as $type)
                 <a href="{{ route('user.letters.create', ['type_id' => $type->id]) }}" 
                    class="group relative block bg-white p-6 sm:p-8 rounded-2xl shadow-md border border-indigo-500 hover:bg-indigo-50 hover:shadow-xl hover:shadow-indigo-100 hover:border-indigo-700 transition-all duration-300 ease-in-out transform hover:-translate-y-1">
-                    
-                    {{-- DEKORASI BACKGROUND ICON (ABSAR & PUDAR) --}}
-                    
 
                     {{-- ICON UTAMA --}}
                     <div class="w-14 h-14  rounded-2xl flex items-center justify-center mb-5 bg-indigo-600 text-white transition-colors duration-300 shadow-sm group-hover:shadow-indigo-300">

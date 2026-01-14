@@ -14,7 +14,7 @@
                 </div>
             </div>
 
-            {{-- TOMBOL KEMBALI KE PILIH SURAT --}}
+            {{-- TOMBOL KEMBALI --}}
             <a href="{{ route('user.letters.create') }}" 
                class="relative inline-flex items-center justify-center px-6 py-3 overflow-hidden font-bold text-white transition-all duration-300 bg-indigo-600 rounded-xl hover:bg-indigo-700 hover:scale-105 hover:shadow-xl shadow-indigo-500/30 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-offset-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
