@@ -36,6 +36,7 @@ class AdminPanelProvider extends PanelProvider
                 'primary' => Color::hex('#000275'),
             
             ])
+            ->favicon(asset('images/logo.png'))
             // --- TAMBAHKAN BAGIAN INI UNTUK MENGATUR URUTAN GRUP ---
             ->navigationGroups([
                 'Manajemen Surat', // Ini akan muncul paling atas

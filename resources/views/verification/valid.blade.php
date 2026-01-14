@@ -3,50 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Verifikasi Surat - STIKES Bhayangkara</title>
+    <title>Verifikasi Dokumen - STIKES Bhayangkara</title>
+    
+    {{-- Tailwind CSS --}}
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="icon" href="{{ asset('images/logo.png') }}" type="image/png">
+    {{-- Font Inter --}}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .bg-stikes { background-color: #000275; }
+        .text-stikes { color: #000275; }
+        .border-stikes { border-color: #000275; }
+    </style>
 </head>
-<body class="bg-gray-50 flex items-center justify-center min-h-screen p-4">
-    <div class="max-w-md w-full bg-white rounded-xl shadow-lg overflow-hidden border-t-4 border-green-500">
-        <div class="p-6 text-center">
-            <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4">
-                <svg class="h-8 w-8 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
-                </svg>
-            </div>
-            
-            <h2 class="text-2xl font-bold text-gray-800 mb-2">DOKUMEN VALID</h2>
-            <p class="text-sm text-gray-500 mb-6">Surat ini terdaftar resmi di sistem STIKES Bhayangkara Makassar.</p>
+<body class="bg-gray-100 min-h-screen flex flex-col items-center justify-center py-10 px-4">
 
-            <div class="text-left bg-gray-50 p-4 rounded-lg text-sm space-y-3">
-                <div>
-                    <span class="block text-xs font-semibold text-gray-400 uppercase">Nomor Surat</span>
-                    <span class="block font-medium text-gray-800">{{ $letter->letter_number ?? '(Belum Finalisasi)' }}</span>
+    {{-- WRAPPER UTAMA --}}
+    <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden relative">
+        
+        {{-- 1. HEADER BIRU (YANG ANDA MINTA) --}}
+        <div class="bg-stikes pt-10 pb-16 px-6 text-center relative z-10">
+            {{-- Aksen Lingkaran Background Header --}}
+            <div class="absolute top-0 left-0 w-full h-full overflow-hidden opacity-10">
+                <div class="absolute -top-10 -right-10 w-40 h-40 bg-white rounded-full blur-3xl"></div>
+                <div class="absolute top-20 -left-10 w-32 h-32 bg-blue-400 rounded-full blur-2xl"></div>
+            </div>
+
+            <div class="relative z-20">
+                <div class="inline-block p-2 bg-white rounded-xl shadow-lg mb-4">
+                    <img class="h-16 w-auto" src="{{ asset('images/logo.png') }}" alt="Logo STIKES">
                 </div>
-                <div>
-                    <span class="block text-xs font-semibold text-gray-400 uppercase">Perihal</span>
-                    <span class="block font-medium text-gray-800">{{ $letter->subject }}</span>
-                </div>
-                <div>
-                    <span class="block text-xs font-semibold text-gray-400 uppercase">Tanggal Surat</span>
-                    <span class="block font-medium text-gray-800">{{ $letter->letter_date->translatedFormat('d F Y') }}</span>
-                </div>
-                <div>
-                    <span class="block text-xs font-semibold text-gray-400 uppercase">Penanda Tangan</span>
-                    <span class="block font-medium text-gray-800">{{ $letter->signer->user->name }}</span>
-                    <span class="text-xs text-gray-500">({{ $letter->signer->position }})</span>
-                </div>
-                <div>
-                    <span class="block text-xs font-semibold text-gray-400 uppercase">Status</span>
-                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                        VERIFIED / ASLI
-                    </span>
-                </div>
+                <h1 class="text-xl font-bold text-white tracking-wide">STIKES BHAYANGKARA</h1>
+                <p class="text-blue-200 text-xs font-medium uppercase tracking-widest mt-1">Verifikasi Dokumen Resmi</p>
             </div>
         </div>
-        <div class="bg-gray-100 px-6 py-3 text-center text-xs text-gray-500">
-            &copy; {{ date('Y') }} Sistem Persuratan STIKES
+
+        {{-- 2. KARTU KONTEN (Numpuk di atas Header Biru) --}}
+        <div class="relative z-20 -mt-10 px-6 pb-8">
+            <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
+                
+                {{-- Status Badge --}}
+                <div class="text-center mb-6">
+                    <div class="inline-flex items-center gap-2 px-4 py-2 bg-green-50 text-green-700 rounded-full border border-green-100 shadow-sm">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                        <span class="font-bold text-sm tracking-wide">DOKUMEN VALID</span>
+                    </div>
+                </div>
+
+                {{-- Detail Informasi --}}
+                <div class="space-y-5">
+                    
+                    {{-- Nomor Surat --}}
+                    <div class="border-b border-gray-100 pb-4">
+                        <p class="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Nomor Surat</p>
+                        <p class="text-base font-bold text-gray-800 font-mono">{{ $letter->letter_number ?? '-' }}</p>
+                    </div>
+
+                    {{-- Perihal --}}
+                    <div class="border-b border-gray-100 pb-4">
+                        <p class="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Perihal</p>
+                        <p class="text-sm font-medium text-gray-800 leading-relaxed">{{ $letter->subject }}</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        {{-- Tanggal --}}
+                        <div>
+                            <p class="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Tanggal</p>
+                            <p class="text-sm font-semibold text-stikes">
+                                {{ $letter->letter_date->translatedFormat('d M Y') }}
+                            </p>
+                        </div>
+                        
+                        {{-- Penanda Tangan --}}
+                        <div>
+                            <p class="text-[10px] uppercase font-bold text-gray-400 tracking-wider mb-1">Penanda Tangan</p>
+                            <p class="text-sm font-bold text-gray-800">{{ $letter->signer->user->name }}</p>
+                            <p class="text-[10px] text-gray-500 truncate">{{ $letter->signer->position }}</p>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            {{-- Footer Teknis --}}
+            <div class="mt-6 text-center">
+             
+                <div class="flex items-center justify-center gap-1 mt-1 text-[10px] text-blue-600 font-medium bg-blue-50 py-1 px-3 rounded-full inline-flex">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    Terverifikasi oleh Sistem Digital
+                </div>
+            </div>
+
         </div>
+
     </div>
+
+    {{-- Footer Copyright --}}
+    <div class="mt-8 text-center text-xs text-gray-400">
+        &copy; {{ date('Y') }} STIKES Bhayangkara Makassar
+    </div>
+
 </body>
 </html>
