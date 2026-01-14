@@ -5,11 +5,13 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\OutgoingLetterResource\Pages;
 use App\Models\OutgoingDisposition;
 use App\Models\OutgoingLetter;
+use App\Models\LetterType;
 use App\Models\Signer;
 use Filament\Forms;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Notifications\Notification;
@@ -18,6 +20,7 @@ use Filament\Tables;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 
 class OutgoingLetterResource extends Resource
 {
@@ -33,6 +36,34 @@ class OutgoingLetterResource extends Resource
         return parent::getEloquentQuery()
             ->with(['type', 'user', 'signer'])
             ->withoutGlobalScopes();
+    }
+
+    // Helper: Generate Form Input berdasarkan Config Database
+    public static function getDynamicFields(?string $typeId): array
+    {
+        if (!$typeId) return [];
+        $letterType = LetterType::find($typeId);
+        if (!$letterType || empty($letterType->form_config)) return [];
+
+        $fields = [];
+        foreach ($letterType->form_config as $config) {
+            $key = 'additional_data.' . Str::slug($config['label']);
+            
+            if ($config['type'] === 'text') {
+                $fields[] = TextInput::make($key)
+                    ->label($config['label'])
+                    ->required($config['required'] ?? false);
+            } elseif ($config['type'] === 'file') {
+                $fields[] = FileUpload::make($key)
+                    ->label($config['label'])
+                    ->required($config['required'] ?? false)
+                    ->disk('public')
+                    ->directory('lampiran-dinamis')
+                    ->downloadable()
+                    ->openable();
+            }
+        }
+        return $fields;
     }
 
     public static function form(Form $form): Form
@@ -65,49 +96,38 @@ class OutgoingLetterResource extends Resource
                         ->live()
                         ->afterStateUpdated(fn (Forms\Set $set) => $set('additional_data', [])),
 
-                    Forms\Components\TextInput::make('subject')
-                        ->label('Perihal')
-                        ->required()
-                        ->maxLength(255)
-                        ->columnSpan(2),
-
-                    Forms\Components\TextInput::make('recipient')
-                        ->label('Tujuan')
-                        ->required()
-                        ->maxLength(255),
-
-                    Forms\Components\DatePicker::make('letter_date')
-                        ->label('Tanggal')
-                        ->required()
-                        ->default(now()),
+                    Forms\Components\TextInput::make('subject')->label('Perihal')->required()->columnSpan(2),
+                    Forms\Components\TextInput::make('recipient')->label('Tujuan')->required()->maxLength(255),
+                    Forms\Components\DatePicker::make('letter_date')->label('Tanggal')->required()->default(now()),
                 ])->columns(2),
 
+            // --- Form Khusus SKAK (ID 1) ---
             Forms\Components\Section::make('Data Mahasiswa')
                 ->description('Data untuk generate otomatis.')
                 ->schema([
                     Forms\Components\TextInput::make('additional_data.nama')->label('Nama')->required(),
                     Forms\Components\TextInput::make('additional_data.nim')->label('NIM')->required(),
-                    
                     Forms\Components\Grid::make(3)->schema([
                         Forms\Components\TextInput::make('additional_data.prodi')->label('Prodi')->required(),
                         Forms\Components\TextInput::make('additional_data.semester')->label('Semester')->numeric()->required(),
                         Forms\Components\TextInput::make('additional_data.tingkat')->label('Tingkat')->required(),
                     ]),
-                    
                     Forms\Components\Grid::make(2)->schema([
                         Forms\Components\TextInput::make('additional_data.tempat_lahir')->label('Tempat Lahir')->required(),
                         Forms\Components\DatePicker::make('additional_data.tanggal_lahir')->label('Tgl Lahir')->required(),
                     ]),
-                    
-                    Forms\Components\Textarea::make('additional_data.alamat')
-                        ->label('Alamat')
-                        ->rows(2)
-                        ->required()
-                        ->columnSpanFull(),
+                    Forms\Components\Textarea::make('additional_data.alamat')->label('Alamat')->rows(2)->required()->columnSpanFull(),
                 ])
                 ->visible(fn (Get $get) => $get('type_id') == 1)
                 ->columns(2),
 
+            // --- Form Dinamis (Selain ID 1) ---
+            Forms\Components\Section::make('Data Surat')
+                ->description('Isi detail surat sesuai konfigurasi.')
+                ->schema(fn (Get $get) => self::getDynamicFields($get('type_id')))
+                ->visible(fn (Get $get) => $get('type_id') != 1 && $get('type_id') != null),
+
+            // --- File Upload Admin (Manual) ---
             Forms\Components\Section::make('File Surat Final (Admin)')
                 ->description('Upload file surat yang telah diketik/dibuat oleh Admin.')
                 ->schema([
@@ -119,11 +139,8 @@ class OutgoingLetterResource extends Resource
                         ->maxSize(10240)
                         ->downloadable()
                         ->openable()
-                        // Wajib diisi jika BUKAN ID 1
                         ->required(fn (Get $get) => $get('type_id') != 1)
-                        ->validationMessages([
-                            'required' => 'File surat wajib diupload sebelum disimpan.',
-                        ])
+                        ->validationMessages(['required' => 'File surat wajib diupload sebelum disimpan.'])
                         ->columnSpanFull(),
                 ])
                 ->visible(fn (Get $get) => $get('type_id') != 1),
@@ -139,15 +156,8 @@ class OutgoingLetterResource extends Resource
                         ->relationship()
                         ->label('File Lampiran')
                         ->schema([
-                            Forms\Components\TextInput::make('filename')
-                                ->label('Nama File')
-                                ->required(),
-                            
-                            FileUpload::make('file_path')
-                                ->label('File')
-                                ->disk('public')
-                                ->directory('lampiran-surat-keluar')
-                                ->required(),
+                            Forms\Components\TextInput::make('filename')->label('Nama File')->required(),
+                            FileUpload::make('file_path')->label('File')->disk('public')->directory('lampiran-surat-keluar')->required(),
                         ])->columns(2),
                 ]),
 
@@ -164,7 +174,7 @@ class OutgoingLetterResource extends Resource
                             'completed' => 'Selesai',
                         ])
                         ->default('submitted')
-                        ->disabled() // Admin tidak boleh ubah
+                        ->disabled()
                         ->dehydrated(),
                         
                     Forms\Components\TextInput::make('letter_number')
@@ -179,32 +189,11 @@ class OutgoingLetterResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('created_at')
-                    ->label('Tanggal Buat')
-                    ->date('d M Y')
-                    ->sortable()
-                    ->toggleable(),
-                
-                Tables\Columns\TextColumn::make('type.name')
-                    ->label('Jenis')
-                    ->badge()
-                    ->color('primary')
-                    ->sortable(),
-                
-                Tables\Columns\TextColumn::make('subject')
-                    ->label('Perihal')
-                    ->limit(30)
-                    ->searchable()
-                    ->weight('bold')
-                    ->wrap(),
-
-                Tables\Columns\TextColumn::make('user.name')
-                    ->label('Pemohon')
-                    ->searchable()
-                    ->toggleable(),
-                
-                Tables\Columns\TextColumn::make('status')
-                    ->badge()
+                Tables\Columns\TextColumn::make('created_at')->label('Tanggal Buat')->date('d M Y')->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('type.name')->label('Jenis')->badge()->color('primary')->sortable(),
+                Tables\Columns\TextColumn::make('subject')->label('Perihal')->limit(30)->searchable()->weight('bold')->wrap(),
+                Tables\Columns\TextColumn::make('user.name')->label('Pemohon')->searchable()->toggleable(),
+                Tables\Columns\TextColumn::make('status')->badge()
                     ->color(fn (string $state): string => match ($state) {
                         'submitted' => 'info',
                         'draft' => 'gray',
@@ -223,23 +212,14 @@ class OutgoingLetterResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->actions([
-                Tables\Actions\ViewAction::make()
-                    ->label('Detail')
-                    ->button()
-                    ->size('xs')
-                    ->color('gray'),
-
-                Tables\Actions\EditAction::make()
-                    ->label('Edit')
-                    ->button()
-                    ->size('xs')
-                    ->visible(fn () => Auth::user()->role === 'admin'),
-
+                Tables\Actions\ViewAction::make()->label('Detail')->button()->size('xs')->color('gray'),
+                Tables\Actions\EditAction::make()->label('Edit')->button()->size('xs')->visible(fn () => Auth::user()->role === 'admin'),
+                
                 Tables\Actions\DeleteAction::make()
                     ->label('Hapus')
                     ->button()
                     ->size('xs')
-                    ->visible(fn (OutgoingLetter $r) => Auth::user()->role === 'admin' && $r->status !== 'completed'),
+                    ->visible(fn (OutgoingLetter $record) => Auth::user()->role === 'admin' && $record->status !== 'completed'),
 
                 Tables\Actions\Action::make('print')
                     ->label('Cetak')
@@ -250,8 +230,18 @@ class OutgoingLetterResource extends Resource
                     ->url(fn (OutgoingLetter $record) => route('outgoing.print', $record))
                     ->openUrlInNewTab()
                     ->visible(fn ($record) => in_array($record->status, ['approved', 'completed'])),
+
+                Tables\Actions\Action::make('download_qr')
+                    ->label('QR Code')
+                    ->icon('heroicon-o-qr-code')
+                    ->button()
+                    ->size('xs')
+                    ->color('success')
+                    ->url(fn (OutgoingLetter $record) => route('outgoing-letters.download-qr', $record))
+                    ->openUrlInNewTab()
+                    ->visible(fn ($record) => in_array($record->status, ['approved', 'completed'])),
                 
-                // Actions Pimpinan
+                // --- Actions Pimpinan ---
                 Tables\Actions\Action::make('approve_modal')
                     ->label('Setujui')
                     ->color('success')
@@ -259,25 +249,14 @@ class OutgoingLetterResource extends Resource
                     ->button()
                     ->size('xs')
                     ->requiresConfirmation()
-                    ->visible(fn (OutgoingLetter $record) => 
-                        Auth::user()->role === 'pimpinan' && 
-                        !in_array($record->status, ['approved', 'rejected'])
-                    )
+                    ->visible(fn (OutgoingLetter $record) => Auth::user()->role === 'pimpinan' && !in_array($record->status, ['approved', 'rejected']))
                     ->action(function (OutgoingLetter $record) {
                         $pimpinan = Signer::whereHas('user', fn ($q) => $q->where('role', 'pimpinan'))->first();
-
                         if (!$pimpinan) {
                             Notification::make()->title('Data Signer Pimpinan tidak ditemukan!')->danger()->send();
                             return;
                         }
-
-                        $record->update([
-                            'status' => 'approved',
-                            'signer_id' => $pimpinan->id,
-                            'approved_at' => now(),
-                            'approved_by' => Auth::id(),
-                        ]);
-
+                        $record->update(['status' => 'approved', 'signer_id' => $pimpinan->id, 'approved_at' => now(), 'approved_by' => Auth::id()]);
                         Notification::make()->title('Surat Disetujui')->success()->send();
                     }),
                 
@@ -287,25 +266,11 @@ class OutgoingLetterResource extends Resource
                     ->icon('heroicon-o-pencil-square')
                     ->button()
                     ->size('xs')
-                    ->form([
-                        Textarea::make('note')->required()->label('Catatan Revisi')
-                    ])
-                    ->visible(fn (OutgoingLetter $record) => 
-                        Auth::user()->role === 'pimpinan' && 
-                        !in_array($record->status, ['approved', 'rejected', 'revision_needed'])
-                    )
+                    ->form([Textarea::make('note')->required()->label('Catatan Revisi')])
+                    ->visible(fn (OutgoingLetter $record) => Auth::user()->role === 'pimpinan' && !in_array($record->status, ['approved', 'rejected', 'revision_needed']))
                     ->action(function (OutgoingLetter $record, array $data) {
-                        OutgoingDisposition::create([
-                            'outgoing_letter_id' => $record->id,
-                            'user_id' => Auth::id(),
-                            'instruction' => $data['note'],
-                        ]);
-
-                        $record->update([
-                            'status' => 'revision_needed', 
-                            'rejection_note' => $data['note']
-                        ]);
-                        
+                        OutgoingDisposition::create(['outgoing_letter_id' => $record->id, 'user_id' => Auth::id(), 'instruction' => $data['note']]);
+                        $record->update(['status' => 'revision_needed', 'rejection_note' => $data['note']]);
                         Notification::make()->title('Dikembalikan untuk revisi')->warning()->send();
                     }),
                 
@@ -315,20 +280,10 @@ class OutgoingLetterResource extends Resource
                     ->icon('heroicon-o-x-mark')
                     ->button()
                     ->size('xs')
-                    ->form([
-                        Textarea::make('note')->required()->label('Alasan Penolakan')
-                    ])
-                    ->visible(fn (OutgoingLetter $record) => 
-                        Auth::user()->role === 'pimpinan' && 
-                        !in_array($record->status, ['approved', 'rejected'])
-                    )
+                    ->form([Textarea::make('note')->required()->label('Alasan Penolakan')])
+                    ->visible(fn (OutgoingLetter $record) => Auth::user()->role === 'pimpinan' && !in_array($record->status, ['approved', 'rejected']))
                     ->action(function (OutgoingLetter $record, array $data) {
-                        $record->update([
-                            'status' => 'rejected', 
-                            'rejection_note' => $data['note'],
-                            'rejected_at' => now(),
-                            'rejected_by' => Auth::id(),
-                        ]);
+                        $record->update(['status' => 'rejected', 'rejection_note' => $data['note'], 'rejected_at' => now(), 'rejected_by' => Auth::id()]);
                         Notification::make()->title('Surat Ditolak')->danger()->send();
                     }),
             ]);
