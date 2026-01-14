@@ -39,7 +39,6 @@ class OutgoingLetterResource extends Resource
             ->withoutGlobalScopes();
     }
 
-    // Helper: Generate Form Input berdasarkan Config Database
     public static function getDynamicFields(?string $typeId): array
     {
         if (!$typeId) return [];
@@ -48,20 +47,28 @@ class OutgoingLetterResource extends Resource
 
         $fields = [];
         foreach ($letterType->form_config as $config) {
-            $key = 'additional_data.' . Str::slug($config['label']);
-            
-            if ($config['type'] === 'text') {
+            if (empty($config['label'])) continue;
+
+            $type = strtolower(trim($config['type'] ?? 'text'));
+            $key = Str::slug($config['label']);
+
+            if ($type === 'text') {
                 $fields[] = TextInput::make($key)
                     ->label($config['label'])
                     ->required($config['required'] ?? false);
-            } elseif ($config['type'] === 'file') {
+            } elseif ($type === 'file') {
                 $fields[] = FileUpload::make($key)
                     ->label($config['label'])
-                    ->required($config['required'] ?? false)
                     ->disk('public')
                     ->directory('lampiran-dinamis')
+                    ->visibility('public')
+                    ->required($config['required'] ?? false)
+                    ->maxSize(10240)
+                    ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
                     ->downloadable()
-                    ->openable();
+                    ->openable()
+                    ->previewable()
+                    ->columnSpanFull();
             }
         }
         return $fields;
@@ -77,7 +84,7 @@ class OutgoingLetterResource extends Resource
                         ->content(fn ($record) => $record?->dispositions()->latest()->first()?->instruction)
                         ->extraAttributes(['class' => 'text-warning-600 font-bold'])
                         ->visible(fn ($record) => $record?->status === 'revision_needed'),
-                    
+
                     Forms\Components\Placeholder::make('reject_alert')
                         ->label('Alasan Penolakan:')
                         ->content(fn ($record) => $record->rejection_note)
@@ -88,23 +95,43 @@ class OutgoingLetterResource extends Resource
 
             Forms\Components\Section::make('Informasi Dasar')
                 ->schema([
-                    Forms\Components\Select::make('type_id')
-                        ->relationship('type', 'name')
-                        ->label('Jenis Surat')
-                        ->searchable()
-                        ->preload()
+                    Forms\Components\Grid::make(2)->schema([
+                        Forms\Components\Select::make('type_id')
+                            ->relationship('type', 'name')
+                            ->label('Jenis Surat')
+                            ->searchable()
+                            ->preload()
+                            ->required()
+                            ->live()
+                            ->afterStateUpdated(fn (Forms\Set $set) => $set('additional_data', [])),
+
+                        Forms\Components\DatePicker::make('letter_date')
+                            ->label('Tanggal')
+                            ->required()
+                            ->default(now()),
+                    ]),
+
+                    Forms\Components\TextInput::make('letter_number')
+                        ->label('Nomor Surat')
+                        ->disabled()
+                        ->dehydrated(false)
+                        ->placeholder('Nomor akan muncul setelah disetujui pimpinan')
+                        ->columnSpanFull(),
+
+                    Forms\Components\TextInput::make('recipient')
+                        ->label('Tujuan')
                         ->required()
-                        ->live()
-                        ->afterStateUpdated(fn (Forms\Set $set) => $set('additional_data', [])),
+                        ->maxLength(255)
+                        ->columnSpanFull(),
 
-                    Forms\Components\TextInput::make('subject')->label('Perihal')->required()->columnSpan(2),
-                    Forms\Components\TextInput::make('recipient')->label('Tujuan')->required()->maxLength(255),
-                    Forms\Components\DatePicker::make('letter_date')->label('Tanggal')->required()->default(now()),
-                ])->columns(2),
+                    Forms\Components\TextInput::make('subject')
+                        ->label('Perihal')
+                        ->required()
+                        ->columnSpanFull(),
+                ]),
 
-            // --- Form Khusus SKAK (ID 1) ---
-            Forms\Components\Section::make('Data Mahasiswa')
-                ->description('Data untuk generate otomatis.')
+            Forms\Components\Section::make('Detail Surat')
+                ->description('Data Mahasiswa')
                 ->schema([
                     Forms\Components\TextInput::make('additional_data.nama')->label('Nama')->required(),
                     Forms\Components\TextInput::make('additional_data.nim')->label('NIM')->required(),
@@ -122,31 +149,13 @@ class OutgoingLetterResource extends Resource
                 ->visible(fn (Get $get) => $get('type_id') == 1)
                 ->columns(2),
 
-            // --- Form Dinamis (Selain ID 1) ---
-            Forms\Components\Section::make('Data Surat')
+            Forms\Components\Section::make('Detail Surat')
                 ->description('Isi detail surat sesuai konfigurasi.')
+                ->statePath('additional_data')
                 ->schema(fn (Get $get) => self::getDynamicFields($get('type_id')))
                 ->visible(fn (Get $get) => $get('type_id') != 1 && $get('type_id') != null),
 
-            // --- File Upload Admin (Manual) ---
-            Forms\Components\Section::make('File Surat Final (Admin)')
-                ->description('Upload file surat yang telah diketik/dibuat oleh Admin.')
-                ->schema([
-                    FileUpload::make('final_file_path')
-                        ->label('Upload Dokumen Surat (Word/PDF)')
-                        ->disk('public')
-                        ->directory('surat-keluar')
-                        ->acceptedFileTypes(['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
-                        ->maxSize(10240)
-                        ->downloadable()
-                        ->openable()
-                        ->required(fn (Get $get) => $get('type_id') != 1)
-                        ->validationMessages(['required' => 'File surat wajib diupload sebelum disimpan.'])
-                        ->columnSpanFull(),
-                ])
-                ->visible(fn (Get $get) => $get('type_id') != 1),
-
-            Forms\Components\Section::make('Lampiran Pendukung')
+            Forms\Components\Section::make('Lampiran')
                 ->schema([
                     Forms\Components\Placeholder::make('info')
                         ->content('Wajib upload Bukti Pembayaran UKT Terakhir untuk SKAK.')
@@ -162,27 +171,23 @@ class OutgoingLetterResource extends Resource
                         ])->columns(2),
                 ]),
 
-            Forms\Components\Section::make('Validasi Admin')
+            Forms\Components\Section::make('Upload File Surat')
+                ->description('Upload file surat final yang telah diketik/dibuat oleh Admin.')
                 ->schema([
-                    Forms\Components\Select::make('status')
-                        ->label('Status Pengajuan')
-                        ->options([
-                            'submitted' => 'Pengajuan Baru',
-                            'draft' => 'Draft',
-                            'pending_approval' => 'Menunggu TTD',
-                            'approved' => 'Disetujui',
-                            'rejected' => 'Ditolak',
-                            'completed' => 'Selesai',
-                        ])
-                        ->default('submitted')
-                        ->disabled()
-                        ->dehydrated(),
-                        
-                    Forms\Components\TextInput::make('letter_number')
-                        ->label('Nomor Surat')
-                        ->disabled(),
+                    FileUpload::make('final_file_path')
+                        ->label('Dokumen Surat (Word/PDF)')
+                        ->disk('public')
+                        ->directory('surat-keluar')
+                        ->acceptedFileTypes(['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'])
+                        ->maxSize(10240)
+                        ->downloadable()
+                        ->openable()
+                        ->required(fn (Get $get) => $get('type_id') != 1)
+                        ->validationMessages(['required' => 'File surat wajib diupload.'])
+                        ->columnSpanFull(),
                 ])
-                ->visible(fn () => Auth::user()->role === 'admin'),
+                ->visible(fn (Get $get) => $get('type_id') != 1),
+        
         ]);
     }
 
@@ -215,7 +220,7 @@ class OutgoingLetterResource extends Resource
             ->actions([
                 Tables\Actions\ViewAction::make()->label('Detail')->button()->size('xs')->color('gray'),
                 Tables\Actions\EditAction::make()->label('Edit')->button()->size('xs')->visible(fn () => Auth::user()->role === 'admin'),
-                
+
                 Tables\Actions\DeleteAction::make()
                     ->label('Hapus')
                     ->button()
@@ -241,8 +246,7 @@ class OutgoingLetterResource extends Resource
                     ->url(fn (OutgoingLetter $record) => route('outgoing-letters.download-qr', $record))
                     ->openUrlInNewTab()
                     ->visible(fn ($record) => in_array($record->status, ['approved', 'completed'])),
-                
-                // --- Actions Pimpinan ---
+
                 Tables\Actions\Action::make('approve_modal')
                     ->label('Setujui')
                     ->color('success')
@@ -260,7 +264,7 @@ class OutgoingLetterResource extends Resource
                         $record->update(['status' => 'approved', 'signer_id' => $pimpinan->id, 'approved_at' => now(), 'approved_by' => Auth::id()]);
                         Notification::make()->title('Surat Disetujui')->success()->send();
                     }),
-                
+
                 Tables\Actions\Action::make('request_revision')
                     ->label('Revisi')
                     ->color('warning')
@@ -274,7 +278,7 @@ class OutgoingLetterResource extends Resource
                         $record->update(['status' => 'revision_needed', 'rejection_note' => $data['note']]);
                         Notification::make()->title('Dikembalikan untuk revisi')->warning()->send();
                     }),
-                
+
                 Tables\Actions\Action::make('reject_modal')
                     ->label('Tolak')
                     ->color('danger')
