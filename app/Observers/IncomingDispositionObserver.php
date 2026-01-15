@@ -12,10 +12,8 @@ class IncomingDispositionObserver
      */
     public function created(IncomingDisposition $incomingDisposition): void
     {
-        // Ambil surat induknya
         $letter = $incomingDisposition->incomingLetter;
 
-        // Cek: Kalau statusnya masih 'waiting_disposition', ubah jadi 'dispositioned'
         if ($letter && $letter->status === 'waiting_disposition') {
             $letter->update([
                 'status' => 'dispositioned',
@@ -36,10 +34,6 @@ class IncomingDispositionObserver
      */
     public function deleted(IncomingDisposition $incomingDisposition): void
     {
-        // Opsional: Kalau semua disposisi dihapus, balikin status jadi waiting?
-        // Logic ini agak tricky, sementara kita biarkan saja.
-        // Kalau mau perfect: Cek jumlah disposisi tersisa. Kalau 0, ubah ke waiting.
-        
         $letter = $incomingDisposition->incomingLetter;
         
         if ($letter && $letter->dispositions()->count() === 0) {

@@ -2,44 +2,50 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\IncomingLetterResource;
 use App\Filament\Resources\OutgoingLetterResource;
+use App\Models\IncomingLetter;
 use App\Models\OutgoingLetter;
 use Filament\Widgets\StatsOverviewWidget as BaseWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
 use Illuminate\Support\Facades\Auth;
 
-
 class PimpinanStats extends BaseWidget
 {
+    // Urutan 0 berarti paling atas
     protected static ?int $sort = 0;
+
+    public static function canView(): bool
+    {
+        return Auth::check() && Auth::user()->role === 'pimpinan';
+    }
 
     protected function getStats(): array
     {
-        return [
-            // 1. KOTAK UTAMA: BUTUH PERSETUJUAN (Ini Shortcut-nya)
-            Stat::make('Butuh Persetujuan', OutgoingLetter::where('status', 'pending')->count())
-                ->description('Klik untuk validasi surat')
-                ->descriptionIcon('heroicon-m-pencil-square')
-                ->color('danger') // Merah (Penting)
-                ->url(OutgoingLetterResource::getUrl('index')), // Link ke halaman surat
+        $incomingCount = IncomingLetter::where('status', 'waiting_disposition')->count();
+        $outgoingPendingCount = OutgoingLetter::where('status', 'pending_approval')->count();
+        $outgoingApprovedCount = OutgoingLetter::where('status', 'approved')->count();
+        $outgoingRejectedCount = OutgoingLetter::where('status', 'rejected')->count();
 
-            // 2. KOTAK INFO: SUDAH DISETUJUI
-            Stat::make('Sudah Disetujui', OutgoingLetter::where('status', 'approved')->count())
+        return [
+            Stat::make('Surat Masuk (Disposisi)', $incomingCount)
+                ->description($incomingCount > 0 ? 'Menunggu disposisi Anda' : 'Tidak ada surat masuk')
+                ->descriptionIcon('heroicon-m-inbox-arrow-down')
+                ->color('primary') 
+                ->chart($incomingCount > 0 ? [2, 10, 5, 15] : [])
+                ->url(IncomingLetterResource::getUrl('index')),
+
+            Stat::make('Butuh Tanda Tangan', $outgoingPendingCount)
+                ->description($outgoingPendingCount > 0 ? 'Klik untuk validasi surat' : 'Aman, tidak ada tanggungan')
+                ->descriptionIcon('heroicon-m-pencil-square')
+                ->color($outgoingPendingCount > 0 ? 'danger' : 'success') 
+                ->chart($outgoingPendingCount > 0 ? [15, 5, 10, 2] : [])
+                ->url(OutgoingLetterResource::getUrl('index')), 
+
+            Stat::make('Sudah Disetujui', $outgoingApprovedCount)
                 ->description('Total surat yang Anda tanda tangani')
                 ->descriptionIcon('heroicon-m-check-badge')
-                ->color('success'), // Hijau (Info saja, tidak perlu link jika tidak diminta)
-
-            // 3. KOTAK INFO: DITOLAK
-            Stat::make('Ditolak', OutgoingLetter::where('status', 'rejected')->count())
-                ->description('Surat yang dikembalikan')
-                ->descriptionIcon('heroicon-m-x-circle')
-                ->color('gray'), // Abu-abu
+                ->color('success'), 
         ];
     }
-
-    public static function canView(): bool
-        {
-            // Pastikan di database users, kolom role isinya 'pimpinan' (huruf kecil semua)
-            return Auth::user()->role === 'pimpinan';
-        }
 }

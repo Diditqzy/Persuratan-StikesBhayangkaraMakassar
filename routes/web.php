@@ -10,26 +10,13 @@ Route::get('/', function () {
     return redirect()->route('login');
 });
 
-// Route::get('/dashboard', function () {
-//     // Jika user biasa mencoba akses dashboard, lempar ke surat saya
-//     if (auth()->user()->role === 'user') {
-//         return redirect()->route('user.letters.index');
-//     }
-    
-//     // Jika admin/pimpinan, tampilkan view dashboard
-//     return view('dashboard');
-// })->middleware(['auth', 'verified'])->name('dashboard');
-
 Route::get('/dashboard', function () {
     $user = auth()->user();
 
-    // 1. Jika User Biasa -> Lempar ke Surat Saya
     if ($user->role === 'user') {
         return redirect()->route('user.letters.index');
     }
     
-    // 2. Jika Admin/Pimpinan -> Lempar ke Filament
-    // (Agar jika mereka ketik /dashboard, otomatis masuk ke /admin)
     return redirect()->to('/admin');
 
 })->middleware(['auth', 'verified'])->name('dashboard');
@@ -39,9 +26,6 @@ Route::get('/admin/outgoing-letters/{record}/print', [PdfController::class, 'pri
     ->middleware('auth');
 
 Route::middleware('auth')->group(function () {
-        // Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-        // Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
-        // Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::get('/letters/{record}/print', [PdfController::class, 'printOutgoing'])->name('letters.print');
     Route::get('/surat-saya', [App\Http\Controllers\UserLetterController::class, 'index'])->name('user.letters.index');
     Route::get('/ajukan-surat', [App\Http\Controllers\UserLetterController::class, 'create'])->name('user.letters.create');

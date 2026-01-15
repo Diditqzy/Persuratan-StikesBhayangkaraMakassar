@@ -25,23 +25,21 @@ class IncomingLetterResource extends Resource
     protected static ?string $model = IncomingLetter::class;
 
     protected static ?string $navigationIcon = 'heroicon-o-inbox-arrow-down';
-    protected static ?string $navigationGroup = 'Manajemen Surat'; // Opsional: Biar rapi di sidebar
+    protected static ?string $navigationGroup = 'Manajemen Surat';
     protected static ?string $navigationLabel = 'Surat Masuk';
     protected static ?string $modelLabel = 'Surat Masuk';
+    protected static ?string $pluralModelLabel = 'Surat Masuk';
     protected static ?int $navigationSort = 1;
 
     public static function form(Form $form): Form
     {
         return $form
             ->schema([
-                
-                // --- KOLOM KIRI: DATA UTAMA ---
                 Group::make()
                     ->schema([
                         Section::make('Informasi Surat')
                             ->description('Detail identitas surat masuk.')
                             ->schema([
-                                // BARIS 1: No Agenda & Pengirim
                                 Grid::make(2)->schema([
                                     TextInput::make('agenda_number')
                                         ->label('No. Agenda (Internal)')
@@ -57,9 +55,6 @@ class IncomingLetterResource extends Resource
                                         ->required()
                                         ->maxLength(255),
                                 ]),
-
-                                // BARIS 2: No Surat & Perihal (PERMINTAAN ANDA)
-                                // Menggunakan Grid 3 kolom: No Surat (1 kolom), Perihal (2 kolom)
                                 Grid::make([
                                     'default' => 1,
                                     'md' => 3,
@@ -67,17 +62,16 @@ class IncomingLetterResource extends Resource
                                     TextInput::make('reference_number')
                                         ->label('Nomor Surat (Asli)')
                                         ->placeholder('Nomor yang tertera di surat')
-                                        ->columnSpan(1) // Lebar 1/3
+                                        ->columnSpan(1) 
                                         ->required(),
 
                                     TextInput::make('subject')
                                         ->label('Perihal')
                                         ->placeholder('Inti isi surat...')
-                                        ->columnSpan(2) // Lebar 2/3 (Biar lebih panjang)
+                                        ->columnSpan(2) 
                                         ->required(),
                                 ]),
 
-                                // BARIS 3: Tanggal Surat & Tanggal Diterima
                                 Grid::make(2)->schema([
                                     DatePicker::make('letter_date')
                                         ->label('Tanggal Tertulis di Surat')
@@ -107,7 +101,7 @@ class IncomingLetterResource extends Resource
                                     ->disk('public')
                                     ->directory('surat-masuk')
                                     ->acceptedFileTypes(['application/pdf', 'image/jpeg', 'image/png'])
-                                    ->maxSize(10240) // 10MB
+                                    ->maxSize(10240)
                                     ->downloadable()
                                     ->openable()
                                     ->previewable()
@@ -115,10 +109,9 @@ class IncomingLetterResource extends Resource
                                     ->columnSpanFull(),
                             ]),
                     ])
-                    ->columnSpan(['lg' => 2]) // Di layar besar makan 2/3 layar
-                    ->disabled(fn () => Auth::user()->role === 'pimpinan'), // Pimpinan tidak bisa edit surat
+                    ->columnSpan(['lg' => 2]) 
+                    ->disabled(fn () => Auth::user()->role === 'pimpinan'), 
 
-                // --- KOLOM KANAN: DISPOSISI (SIDEBAR) ---
                 Group::make()
                     ->schema([
                         Section::make('Lembar Disposisi')
@@ -129,6 +122,11 @@ class IncomingLetterResource extends Resource
                                     ->relationship()
                                     ->hiddenLabel()
                                     ->schema([
+                                        Forms\Components\Hidden::make('user_id')
+                                            ->default(fn () => Auth::id())
+                                            ->dehydrated()
+                                            ->required(),
+
                                         Select::make('target_division')
                                             ->label('Teruskan Ke')
                                             ->options([
@@ -149,25 +147,18 @@ class IncomingLetterResource extends Resource
                                             ->placeholder('Contoh: Tindak lanjuti...')
                                             ->rows(2)
                                             ->required(),
-                                        
-                                        // Hidden field untuk user_id (otomatis terisi)
-                                        Select::make('user_id')
-                                            ->relationship('user', 'name')
-                                            ->default(fn () => Auth::id())
-                                            ->hidden()
-                                            ->dehydrated(),
                                     ])
                                     ->itemLabel(fn (array $state) => $state['target_division'] ?? 'Disposisi Baru')
                                     ->collapsible()
-                                    ->collapsed(),
-                            ])
-                            // Pimpinan Boleh Edit Disposisi, Admin Cuma Bisa Lihat (Opsional)
-                            // ->disabled(fn () => Auth::user()->role !== 'pimpinan') 
-                            ,
+                                    ->collapsed(false) 
+                                    ->addable(fn () => Auth::user()->role === 'pimpinan')
+                                    ->deletable(fn () => Auth::user()->role === 'pimpinan'),
+                            ]),
                     ])
-                    ->columnSpan(['lg' => 1]), // Di layar besar makan 1/3 layar
+                    ->columnSpan(['lg' => 1])
+                    ->visible(fn () => Auth::user()->role === 'pimpinan' || Auth::user()->role === 'admin'), 
             ])
-            ->columns(3); // Total grid layout halaman: 3 kolom
+            ->columns(3); 
     }
 
  public static function table(Table $table): Table
@@ -220,26 +211,21 @@ class IncomingLetterResource extends Resource
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                // Filter tanggal jika perlu
+                // 
             ])
             ->actions([
-                // --- PERUBAHAN DI SINI: Ganti iconButton() jadi button() ---
-
-                // 1. Tombol View
                 Tables\Actions\ViewAction::make()
-                    ->label('Detail') // Teks yang muncul di tombol
-                    ->button()        // Tampilkan sebagai tombol (bukan link/icon saja)
-                    ->size('xs')      // Ukuran kecil agar muat di tabel
-                    ->color('gray'),  // Warna netral
+                    ->label('Detail') 
+                    ->button()
+                    ->size('xs')
+                    ->color('gray'),
 
-                // 2. Tombol Edit / Disposisi
                 Tables\Actions\EditAction::make()
                     ->label(fn () => Auth::user()->role === 'pimpinan' ? 'Disposisi' : 'Edit')
                     ->button()
                     ->size('xs')
                     ->color(fn () => Auth::user()->role === 'pimpinan' ? 'warning' : 'primary'),
 
-                // 3. Tombol Delete (Hanya Admin)
                 Tables\Actions\DeleteAction::make()
                     ->visible(fn () => Auth::user()->role === 'admin')
                     ->label('Hapus')

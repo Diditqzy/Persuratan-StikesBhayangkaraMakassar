@@ -12,7 +12,6 @@ class CreateOutgoingLetter extends CreateRecord
 
     public function mount(): void
     {
-        // Cegah Pimpinan mengakses halaman pembuatan surat
         if (Auth::user()->role !== 'admin') {
             abort(403, 'Anda tidak memiliki akses untuk membuat surat.');
         }

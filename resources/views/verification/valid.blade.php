@@ -23,9 +23,8 @@
     {{-- WRAPPER UTAMA --}}
     <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden relative">
         
-        {{-- 1. HEADER BIRU (YANG ANDA MINTA) --}}
+        {{-- 1. HEADER --}}
         <div class="bg-stikes pt-10 pb-16 px-6 text-center relative z-10">
-            {{-- Aksen Lingkaran Background Header --}}
             <div class="absolute top-0 left-0 w-full h-full overflow-hidden opacity-10">
                 <div class="absolute -top-10 -right-10 w-40 h-40 bg-white rounded-full blur-3xl"></div>
                 <div class="absolute top-20 -left-10 w-32 h-32 bg-blue-400 rounded-full blur-2xl"></div>
@@ -40,7 +39,7 @@
             </div>
         </div>
 
-        {{-- 2. KARTU KONTEN (Numpuk di atas Header Biru) --}}
+        {{-- 2. KARTU KONTEN --}}
         <div class="relative z-20 -mt-10 px-6 pb-8">
             <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
                 

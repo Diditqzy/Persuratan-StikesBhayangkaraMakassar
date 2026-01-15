@@ -3,7 +3,6 @@
 <head>
     <title>Cetak Surat - {{ $data->letter_number }}</title>
     <style>
-        /* PENGATURAN KERTAS A4 PORTRAIT */
         @page { margin: 2cm 2.5cm 2.5cm 2.5cm; }
         body {
             font-family: "Times New Roman", Times, serif;
@@ -69,53 +68,47 @@
         }
         .intro-text { margin-bottom: 10px; }
 
-        /* TANDA TANGAN (MENGGUNAKAN TABLE AGAR PRESISI) */
+        /* TANDA TANGAN */
         .ttd-container {
             float: right;
             width: 280px;
             margin-top: 20px;
             text-align: center;
         }
-        /* CSS khusus untuk posisi Logo di tengah QR Code (Support DOMPDF) */
         
 /* WRAPPER QR CODE */
     .qr-wrapper {
-        position: relative;      /* Wajib relative */
-        display: inline-block;   /* Agar ukuran pas */
-        width: 100px;            /* Ukuran QR */
+        position: relative;    
+        display: inline-block; 
+        width: 100px;     
         height: 100px;           
-        margin: 0 auto;          /* Tengah secara horizontal di dalam <td> */
+        margin: 0 auto;  
     }
 
-    /* GAMBAR QR (Layer Bawah) */
+    /* GAMBAR QR  */
     .qr-image {
         width: 100%;
         height: 100%;
     }
 
-    /* LOGO DI TENGAH (Layer Atas) */
+    /* LOGO DI TENGAH  */
     .qr-logo {
-        position: absolute;      /* Menumpuk di atas QR */
-        top: 50%;                /* Dorong ke tengah vertikal 50% */
-        left: 50%;               /* Dorong ke tengah horizontal 50% */
+        position: absolute;     
+        top: 50%;    
+        left: 50%;   
         
         /* UKURAN LOGO */
         width: 24px;             
         height: 24px; 
-
-        /* KUNCI SUPAYA PAS DI TENGAH (RUMUS: Ukuran dibagi -2) */
-        /* Karena width 24px, maka margin-left: -12px */
         margin-top: -12px;       
         margin-left: -12px;      
-
-        /* Kosmetik */
-        background-color: #fff;  /* Background putih biar QR tidak tabrakan */
-        border-radius: 50%;      /* Bulat */
+        background-color: #fff; 
+        border-radius: 50%;   
         padding: 2px;
         z-index: 10;
     }
         .ttd-spacer {
-            height: 100px; /* Tinggi pengganti jika tidak ada QR */
+            height: 100px; 
         }
     </style>
 </head>

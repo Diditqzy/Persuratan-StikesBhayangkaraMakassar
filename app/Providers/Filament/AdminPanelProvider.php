@@ -32,15 +32,13 @@ class AdminPanelProvider extends PanelProvider
             ->path('admin')
             // ->login()
             ->colors([
-                // 'primary' => Color::Indigo,
                 'primary' => Color::hex('#000275'),
             
             ])
             ->favicon(asset('images/logo.png'))
-            // --- TAMBAHKAN BAGIAN INI UNTUK MENGATUR URUTAN GRUP ---
             ->navigationGroups([
-                'Manajemen Surat', // Ini akan muncul paling atas
-                'Pengaturan',      // Ini akan muncul di bawahnya
+                'Manajemen Surat', 
+                'Pengaturan', 
             ])
             
             ->brandLogo(asset('images/logo-dashboard.png'))
@@ -72,41 +70,34 @@ class AdminPanelProvider extends PanelProvider
                 Authenticate::class,
             ]);
     }
-    // --- KITA PINDAHKAN LOGIKA CSS KESINI ---
     public function boot(): void
     {
         FilamentView::registerRenderHook(
             PanelsRenderHook::HEAD_END,
             fn (): string => new HtmlString('
                 <style>
-                    /* SETUP CSS BIAR LEBIH KERAS (SPECIFICITY TINGGI) */
-                    
-                    /* 1. Header Atas & Logo Header */
                     body .fi-topbar,
                     body .fi-sidebar-header {
                         background-color: #000275 !important;
                         border-bottom: none !important;
-                        height: 5.5rem !important; /* Tinggi Header */
+                        height: 5.5rem !important; 
                     }
 
-                    /* 2. Warna Teks, Icon, Logo Putih */
                     body .fi-topbar .fi-btn, 
                     body .fi-topbar .fi-icon-btn,
                     body .fi-topbar .fi-btn-label,
                     body .fi-sidebar-header .fi-logo,
                     body .fi-sidebar-header .fi-logo span {
                         color: white !important;
-                        --c-400: white !important; /* Paksa variabel warna text */
+                        --c-400: white !important;
                         --c-500: white !important;
                     }
 
-                    /* 3. Background Navigasi */
                     body .fi-topbar nav {
                         background-color: transparent !important;
-                        height: 5.5rem !important; /* Tinggi Header */
+                        height: 5.5rem !important;
                     }
 
-                    /* 4. Hover Effect */
                     body .fi-topbar .fi-icon-btn:hover {
                         background-color: rgba(255, 255, 255, 0.2) !important;
                     }

@@ -22,22 +22,11 @@ use App\Filament\Resources\SignerResource\RelationManagers;
 class SignerResource extends Resource
 {
     protected static ?string $model = Signer::class;
-
     protected static ?string $navigationIcon = 'heroicon-o-rectangle-stack';
-
     protected static ?string $navigationGroup = 'Pengaturan';
     protected static ?string $navigationLabel = 'Penanda tangan';
-
-    // 2. Nama tunggal (misal: "Tambah Penandatangan")
     protected static ?string $modelLabel = 'Penanda tangan';
-
-    // 3. Nama jamak (misal: "Daftar Penandatanganan")
     protected static ?string $pluralModelLabel = 'Penanda tangan';
-
-    // 4. Grup Menu (Jika ingin tetap di dalam grup "Pengaturan")
-
-    
-    // Opsional: Mengatur urutan menu dalam grup (1 = paling atas)
     protected static ?int $navigationSort = 1;
     public static function getEloquentQuery(): Builder
     {
@@ -49,7 +38,7 @@ class SignerResource extends Resource
         return $form
             ->schema([
                 Select::make('user_id')
-                    ->relationship('user', 'name') // Ambil data dari tabel users
+                    ->relationship('user', 'name') 
                     ->searchable()
                     ->preload()
                     ->required()
@@ -79,7 +68,7 @@ class SignerResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('user.name') // Menampilkan nama user dari relasi
+                TextColumn::make('user.name') 
                     ->label('Nama Pejabat')
                     ->searchable(),
                 TextColumn::make('position')

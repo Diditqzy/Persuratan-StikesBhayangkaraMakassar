@@ -15,7 +15,8 @@ class UserResource extends Resource
     protected static ?string $model = User::class;
     protected static ?string $navigationIcon = 'heroicon-o-users';
     protected static ?string $navigationLabel = 'Manajemen Pengguna';
-    protected static ?string $navigationGroup = 'Pengaturanfffff';
+    protected static ?string $pluralModelLabel = 'Kelola Pengguna';
+    protected static ?string $navigationGroup = 'Pengaturan';
 
     public static function form(Form $form): Form
     {
@@ -23,17 +24,16 @@ class UserResource extends Resource
             ->schema([
                 Forms\Components\TextInput::make('name')
                     ->label('Nama Lengkap')
-                    ->disabled(), // Read only (dari SIAKAD)
+                    ->disabled(),
                 
                 Forms\Components\TextInput::make('email')
                     ->email()
-                    ->disabled(), // Read only
+                    ->disabled(), 
                 
                 Forms\Components\TextInput::make('identity_number')
                     ->label('NIM / NIP')
-                    ->disabled(), // Read only
+                    ->disabled(), 
 
-                // INI YANG PENTING: Pimpinan bisa ubah role
                 Forms\Components\Select::make('role')
                     ->label('Hak Akses / Jabatan')
                     ->options([

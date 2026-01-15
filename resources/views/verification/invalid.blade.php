@@ -22,9 +22,8 @@
     {{-- WRAPPER UTAMA --}}
     <div class="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden relative">
         
-        {{-- 1. HEADER BIRU (KONSISTEN) --}}
+        {{-- 1. HEADER --}}
         <div class="bg-stikes pt-10 pb-16 px-6 text-center relative z-10">
-            {{-- Aksen Background --}}
             <div class="absolute top-0 left-0 w-full h-full overflow-hidden opacity-10">
                 <div class="absolute -top-10 -left-10 w-40 h-40 bg-white rounded-full blur-3xl"></div>
                 <div class="absolute bottom-0 right-0 w-32 h-32 bg-red-500 rounded-full blur-2xl"></div>
@@ -39,11 +38,10 @@
             </div>
         </div>
 
-        {{-- 2. KARTU PERINGATAN (OVERLAY) --}}
+        {{-- 2. KARTU PERINGATAN --}}
         <div class="relative z-20 -mt-10 px-6 pb-8">
             <div class="bg-white rounded-2xl shadow-lg border border-gray-100 p-8 text-center">
                 
-                {{-- Icon Silang Merah Besar --}}
                 <div class="inline-flex items-center justify-center w-20 h-20 bg-red-50 rounded-full mb-6 ring-8 ring-red-50/50 animate-pulse">
                     <svg class="w-10 h-10 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/>
@@ -63,7 +61,7 @@
                     Kemungkinan dokumen ini palsu, telah dihapus dari sistem, atau URL yang Anda akses salah. Harap hubungi bagian administrasi kampus untuk verifikasi manual.
                 </p>
 
-                {{-- Tombol Kembali (Opsional) --}}
+                {{-- Tombol Kembali --}}
                 <div class="mt-8">
                     <a href="/" class="inline-flex items-center text-xs font-bold text-stikes hover:text-blue-700 transition-colors">
                         <svg class="w-3 h-3 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
